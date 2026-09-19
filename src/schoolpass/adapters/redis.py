@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 
 class Cache(Protocol):
     async def ping(self) -> bool: ...
+    async def set_nx(self, key: str, value: str, ex: int) -> bool: ...
     async def set(self, key: str, value: str, ex: int | None = None) -> None: ...
     async def get(self, key: str) -> bytes | None: ...
     async def incr(self, key: str) -> int: ...
@@ -21,6 +22,9 @@ class RedisCache:
 
     async def ping(self) -> bool:
         return bool(await self._client.ping())
+
+    async def set_nx(self, key: str, value: str, ex: int) -> bool:
+        return bool(await self._client.set(key, value, ex=ex, nx=True))
 
     async def set(self, key: str, value: str, ex: int | None = None) -> None:
         await self._client.set(key, value, ex=ex)

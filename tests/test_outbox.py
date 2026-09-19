@@ -30,7 +30,25 @@ async def test_outbox_written_in_same_transaction(db_factory, world) -> None:
                 request_id="corr-1",
             )
             assert event.published_at is None
-    assert await publish_outbox_batch() >= 1
+    for _ in range(30):
+        await publish_outbox_batch()
+        async with db_factory() as session:
+            async with session.begin():
+                await apply_tenant_context(
+                    session,
+                    TenantContext(
+                        actor_type="user",
+                        tenant_id=world["tenant_a"],
+                        user_id=world["user_a"],
+                    ),
+                )
+                row = (await session.execute(select(OutboxEvent).where(OutboxEvent.id == event.id))).scalar_one()
+                if row.published_at is not None:
+                    break
+    else:
+        row = None
+    assert row is not None
+    assert row.published_at is not None
     async with db_factory() as session:
         async with session.begin():
             await apply_tenant_context(
@@ -41,8 +59,6 @@ async def test_outbox_written_in_same_transaction(db_factory, world) -> None:
                     user_id=world["user_a"],
                 ),
             )
-            row = (await session.execute(select(OutboxEvent).where(OutboxEvent.id == event.id))).scalar_one()
-            assert row.published_at is not None
             audit = (await session.execute(select(AuditLog).where(AuditLog.resource_id == event.id))).scalar_one()
             assert audit.action == "test.ping"
             assert "password" not in audit.metadata_

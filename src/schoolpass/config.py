@@ -47,6 +47,10 @@ class Settings(BaseSettings):
 
     cors_origins: str = ""
 
+    rfid_request_max_skew_seconds: int = 300
+    rfid_nonce_ttl_seconds: int = 600
+    rfid_ingest_rate_limit_per_minute: int = 120
+
     @field_validator("otp_dev_allow")
     @classmethod
     def _otp_not_in_production(cls, value: bool, info: object) -> bool:

@@ -46,6 +46,14 @@ PERMISSIONS: dict[str, str] = {
     "card_assignments:lost": "Mark card assignments lost",
     "card_assignments:revoke": "Revoke card assignments",
     "card_assignments:replace": "Replace student cards",
+    "rfid_readers:create": "Create RFID readers",
+    "rfid_readers:read": "Read RFID readers",
+    "rfid_readers:update": "Update RFID readers",
+    "rfid_devices:create": "Register RFID devices",
+    "rfid_devices:read": "Read RFID devices",
+    "rfid_devices:update": "Update RFID devices",
+    "rfid_devices:rotate_keys": "Rotate RFID device keys",
+    "rfid_events:read": "Read RFID events",
 }
 
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -61,6 +69,9 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "academic:read",
         "cards:read",
         "card_assignments:read",
+        "rfid_readers:read",
+        "rfid_devices:read",
+        "rfid_events:read",
     ),
     "platform_billing": ("tenant:read",),
     "school_admin": (
@@ -100,6 +111,14 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "card_assignments:lost",
         "card_assignments:revoke",
         "card_assignments:replace",
+        "rfid_readers:create",
+        "rfid_readers:read",
+        "rfid_readers:update",
+        "rfid_devices:create",
+        "rfid_devices:read",
+        "rfid_devices:update",
+        "rfid_devices:rotate_keys",
+        "rfid_events:read",
     ),
     "school_finance": (
         "tenant:read",
@@ -110,6 +129,9 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "academic:read",
         "cards:read",
         "card_assignments:read",
+        "rfid_readers:read",
+        "rfid_devices:read",
+        "rfid_events:read",
     ),
     "teacher": (
         "tenant:read",
@@ -119,6 +141,8 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "academic:read",
         "cards:read",
         "card_assignments:read",
+        "rfid_readers:read",
+        "rfid_events:read",
     ),
     "bus_attendant": ("tenant:read", "students:read", "cards:read", "card_assignments:read"),
     "parent": ("tenant:read", "students:read", "guardians:read", "enrollments:read"),

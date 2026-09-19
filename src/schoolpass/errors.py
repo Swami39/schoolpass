@@ -41,13 +41,18 @@ class ValidationFailed(AppError):
 
 
 class NotFoundError(AppError):
-    def __init__(self, message: str = "Not found", code: str = "not_found") -> None:
+    def __init__(self, message: str = "Not found", *, code: str = "not_found") -> None:
         super().__init__(code, message, status.HTTP_404_NOT_FOUND)
 
 
 class ConflictError(AppError):
     def __init__(self, message: str, code: str = "conflict") -> None:
         super().__init__(code, message, status.HTTP_409_CONFLICT)
+
+
+class RateLimitError(AppError):
+    def __init__(self, message: str = "Rate limit exceeded", code: str = "rate_limited") -> None:
+        super().__init__(code, message, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class TenantIsolationError(AppError):
