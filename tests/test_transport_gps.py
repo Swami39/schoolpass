@@ -11,7 +11,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import ProgrammingError
 
 from nfc_helpers import NfcWorld, build_nfc_world, nfc_headers
 from schoolpass.config import Settings
@@ -472,7 +472,7 @@ async def test_rls_prevents_cross_tenant_writes(gps_world: NfcWorld, db_factory)
                 created_at=datetime.now(tz=UTC),
             )
         )
-        with pytest.raises(IntegrityError):
+        with pytest.raises(ProgrammingError):
             await session.commit()
 
 

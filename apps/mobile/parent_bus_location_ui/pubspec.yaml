@@ -1,0 +1,22 @@
+name: parent_bus_location_ui
+description: Parent live bus location screen (Phase 6D.4).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  parent_transport:
+    path: ../parent_transport
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

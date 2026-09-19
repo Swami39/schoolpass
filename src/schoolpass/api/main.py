@@ -18,6 +18,7 @@ from schoolpass.api.routes.attendance import router as attendance_router
 from schoolpass.api.routes.auth import router as auth_router
 from schoolpass.api.routes.cards import router as cards_router
 from schoolpass.api.routes.health import router as health_router
+from schoolpass.api.routes.parent import router as parent_router
 from schoolpass.api.routes.people import router as people_router
 from schoolpass.api.routes.rfid import router as rfid_router
 from schoolpass.api.routes.rfid_ingest import router as rfid_ingest_router
@@ -112,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(transport_router)
     app.include_router(transport_nfc_router)
     app.include_router(transport_gps_router)
+    app.include_router(parent_router)
     return app
 
 
