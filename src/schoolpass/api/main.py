@@ -15,6 +15,7 @@ from schoolpass.adapters.blob import LocalBlobStore
 from schoolpass.adapters.redis import RedisCache
 from schoolpass.adapters.service_bus import AzureServiceBus, LocalRedisBus
 from schoolpass.api.routes.auth import router as auth_router
+from schoolpass.api.routes.cards import router as cards_router
 from schoolpass.api.routes.health import router as health_router
 from schoolpass.api.routes.people import router as people_router
 from schoolpass.api.routes.session import router as session_router
@@ -98,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(session_router)
     app.include_router(people_router)
+    app.include_router(cards_router)
     return app
 
 

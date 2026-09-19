@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from schoolpass.auth.passwords import hash_password
 from schoolpass.auth.tokens import encode_access_token
+from schoolpass.cards.models import PhysicalCard
 from schoolpass.config import Settings
 from schoolpass.db.session import apply_tenant_context
 from schoolpass.identity.models import Role, TenantMembership, User
@@ -93,7 +94,13 @@ async def student_world(db_factory, world: dict[str, UUID], settings: Settings) 
                     last_name="Guardian",
                     phone_e164="+919876543210",
                 )
-                session.add_all([section, student, guardian])
+                card = PhysicalCard(
+                    tenant_id=tenant_id,
+                    hf_uid=f"HF-{uuid4().hex[:8]}",
+                    profile="uid_only",
+                    status="inventory",
+                )
+                session.add_all([section, student, guardian, card])
                 await session.flush()
                 return {
                     "year_id": year.id,
@@ -101,6 +108,7 @@ async def student_world(db_factory, world: dict[str, UUID], settings: Settings) 
                     "section_id": section.id,
                     "student_id": student.id,
                     "guardian_id": guardian.id,
+                    "card_id": card.id,
                 }
 
             tenant_a_data = await seed_tenant(world["tenant_a"], admin_a.id)

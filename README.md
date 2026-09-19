@@ -2,7 +2,7 @@
 
 Production SaaS for schools: dual-frequency (HF + UHF) student cards, gate attendance, bus boarding with offline sync, GPS, parent communication, academics, and UPI fees.
 
-**Phase 1** is the backend foundation (FastAPI, PostgreSQL RLS, auth, audit, outbox). **Phase 2** adds students, guardians, enrollments, and academic structure. Product domains (RFID, NFC, GPS, fees, apps) are not implemented yet.
+**Phase 1** is the backend foundation (FastAPI, PostgreSQL RLS, auth, audit, outbox). **Phase 2** adds students, guardians, enrollments, and academic structure. **Phase 3** adds physical cards and card assignments. Product domains (RFID ingest, NFC, GPS, fees, apps) are not implemented yet.
 
 ## Local development
 
@@ -32,6 +32,7 @@ Runtime DB role is `schoolpass_app` (**NOBYPASSRLS**). Migrations use `schoolpas
 | [docs/testing.md](docs/testing.md) | Test pyramid, RLS and ingest tests, environments |
 | [docs/phase-1.md](docs/phase-1.md) | Phase 1 implementation decisions |
 | [docs/phase-2.md](docs/phase-2.md) | Phase 2 student/guardian/enrollment domain |
+| [docs/phase-3.md](docs/phase-3.md) | Phase 3 physical cards and assignments |
 | [docs/rfid.md](docs/rfid.md) | UHF gate readers, ingest, dedup, direction |
 | [docs/nfc.md](docs/nfc.md) | HF/NFC scanning, card binding, attendant/teacher flows |
 | [docs/gps.md](docs/gps.md) | Bus location, geofences, parent visibility |
