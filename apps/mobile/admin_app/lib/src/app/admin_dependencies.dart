@@ -1,4 +1,5 @@
 import '../academic/admin_academic_api.dart';
+import '../people/admin_people_api.dart';
 import '../auth/auth_api.dart';
 import '../auth/auth_repository.dart';
 import '../http/authenticated_http_client.dart';
@@ -56,4 +57,6 @@ class AdminDependencies {
   AdminSchoolApi get schoolApi => AdminSchoolApi(http);
 
   AdminAcademicApi get academicApi => AdminAcademicApi(http);
+
+  AdminPeopleApi get peopleApi => AdminPeopleApi(http);
 }

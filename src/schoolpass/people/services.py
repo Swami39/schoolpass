@@ -12,6 +12,7 @@ from schoolpass.audit.service import record_audit
 from schoolpass.errors import ConflictError, NotFoundError, ValidationFailed
 from schoolpass.outbox.service import enqueue_outbox
 from schoolpass.people.models import (
+    AcademicYear,
     Enrollment,
     Guardian,
     SchoolClass,
@@ -24,6 +25,55 @@ from schoolpass.tenancy.context import TenantContext
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
+
+
+def _tenant_id(ctx: TenantContext) -> UUID:
+    if ctx.tenant_id is None:
+        raise ValidationFailed("Tenant context is required")
+    return ctx.tenant_id
+
+
+async def _require_student_in_tenant(session: AsyncSession, ctx: TenantContext, student_id: UUID) -> Student:
+    row = await session.get(Student, student_id)
+    if row is None or row.tenant_id != _tenant_id(ctx):
+        raise NotFoundError()
+    return row
+
+
+async def _require_guardian_in_tenant(session: AsyncSession, ctx: TenantContext, guardian_id: UUID) -> Guardian:
+    row = await session.get(Guardian, guardian_id)
+    if row is None or row.tenant_id != _tenant_id(ctx):
+        raise NotFoundError()
+    return row
+
+
+async def _require_enrollment_in_tenant(session: AsyncSession, ctx: TenantContext, enrollment_id: UUID) -> Enrollment:
+    row = await session.get(Enrollment, enrollment_id)
+    if row is None or row.tenant_id != _tenant_id(ctx):
+        raise NotFoundError()
+    return row
+
+
+async def _validate_enrollment_placement(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    academic_year_id: UUID,
+    class_id: UUID,
+    section_id: UUID,
+) -> None:
+    tenant_id = _tenant_id(ctx)
+    year = await session.get(AcademicYear, academic_year_id)
+    if year is None or year.tenant_id != tenant_id:
+        raise NotFoundError()
+    clazz = await session.get(SchoolClass, class_id)
+    if clazz is None or clazz.tenant_id != tenant_id:
+        raise NotFoundError()
+    section = await session.get(Section, section_id)
+    if section is None or section.tenant_id != tenant_id:
+        raise NotFoundError()
+    if section.class_id != class_id:
+        raise ValidationFailed("Section does not belong to the selected class")
 
 
 async def _audit(
@@ -387,8 +437,8 @@ async def attach_guardian(
     can_pay_fees: bool,
     request_id: str | None,
 ) -> StudentGuardian:
-    await get_student(session, ctx, student_id)
-    await get_guardian(session, ctx, guardian_id)
+    await _require_student_in_tenant(session, ctx, student_id)
+    await _require_guardian_in_tenant(session, ctx, guardian_id)
     if ctx.tenant_id is None:
         raise ValidationFailed("Tenant context is required")
     row = StudentGuardian(
@@ -469,15 +519,16 @@ async def create_enrollment(
     starts_on: date,
     request_id: str | None,
 ) -> Enrollment:
-    await get_student(session, ctx, student_id)
-    if await session.get(SchoolClass, class_id) is None:
-        raise NotFoundError()
-    if await session.get(Section, section_id) is None:
-        raise NotFoundError()
-    if ctx.tenant_id is None:
-        raise ValidationFailed("Tenant context is required")
+    await _require_student_in_tenant(session, ctx, student_id)
+    await _validate_enrollment_placement(
+        session,
+        ctx,
+        academic_year_id=academic_year_id,
+        class_id=class_id,
+        section_id=section_id,
+    )
     row = Enrollment(
-        tenant_id=ctx.tenant_id,
+        tenant_id=_tenant_id(ctx),
         student_id=student_id,
         academic_year_id=academic_year_id,
         class_id=class_id,
@@ -514,11 +565,90 @@ async def list_enrollments_for_student(
     ctx: TenantContext,
     student_id: UUID,
 ) -> list[Enrollment]:
-    await get_student(session, ctx, student_id)
+    await _require_student_in_tenant(session, ctx, student_id)
     result = await session.execute(
         select(Enrollment).where(Enrollment.student_id == student_id).order_by(Enrollment.starts_on.desc())
     )
     return list(result.scalars())
+
+
+async def update_enrollment(
+    session: AsyncSession,
+    ctx: TenantContext,
+    enrollment_id: UUID,
+    *,
+    fields: dict[str, Any],
+    request_id: str | None,
+) -> Enrollment:
+    row = await _require_enrollment_in_tenant(session, ctx, enrollment_id)
+    if not fields:
+        raise ValidationFailed("No fields to update")
+    class_id = fields.get("class_id", row.class_id)
+    section_id = fields.get("section_id", row.section_id)
+    if "class_id" in fields or "section_id" in fields:
+        await _validate_enrollment_placement(
+            session,
+            ctx,
+            academic_year_id=row.academic_year_id,
+            class_id=class_id,
+            section_id=section_id,
+        )
+    changed: dict[str, Any] = {}
+    for key, value in fields.items():
+        if value is not None and getattr(row, key) != value:
+            changed[key] = value
+            setattr(row, key, value)
+    if not changed:
+        return row
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise ConflictError("Enrollment could not be updated") from exc
+    await _audit(
+        session,
+        ctx,
+        action="enrollment.updated",
+        resource_type="enrollment",
+        resource_id=row.id,
+        request_id=request_id,
+        metadata={"fields": sorted(changed.keys())},
+    )
+    return row
+
+
+async def list_enrollments(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    student_id: UUID | None,
+    status: str | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[Enrollment], str | None]:
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(Enrollment).order_by(Enrollment.starts_on.desc(), Enrollment.id.desc())
+    if student_id is not None:
+        await _require_student_in_tenant(session, ctx, student_id)
+        stmt = stmt.where(Enrollment.student_id == student_id)
+    if status:
+        stmt = stmt.where(Enrollment.status == status)
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                Enrollment.created_at < created_at,
+                and_(Enrollment.created_at == created_at, Enrollment.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
 
 
 async def close_enrollment(
@@ -530,9 +660,7 @@ async def close_enrollment(
     status: str,
     request_id: str | None,
 ) -> Enrollment:
-    row = await session.get(Enrollment, enrollment_id)
-    if row is None:
-        raise NotFoundError()
+    row = await _require_enrollment_in_tenant(session, ctx, enrollment_id)
     row.ends_on = ends_on
     row.status = status
     await session.flush()
