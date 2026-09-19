@@ -1,6 +1,6 @@
 # Database architecture
 
-**Status:** Architecture is authoritative. Phase 1 implemented identity, tenancy, RLS, audit, and outbox tables. Product-domain tables remain future work. See [phase-1.md](phase-1.md).
+**Status:** Architecture is authoritative. Phase 1: identity, tenancy, RLS, audit, outbox. Phase 2: students, guardians, enrollments, academic structure — see [phase-2.md](phase-2.md).
 
 Shared PostgreSQL for all schools. **Every tenant-owned table has `tenant_id UUID NOT NULL`.** Row Level Security is **ENABLE + FORCE** on those tables. Application `WHERE tenant_id` is not the isolation control.
 
@@ -179,15 +179,9 @@ Unchanged in spirit: `users`, `tenant_memberships`, `roles`, `permissions`, `ref
 
 `staff_type`: `teacher`, `attendant`, `school_admin`, `office`, `finance`. One membership per user per tenant.
 
-### Academic structure and people
+### Academic structure and people (Phase 2)
 
-`students` gain:
-
-- `historical_subject_id UUID NOT NULL UNIQUE`
-- `pii_state` (`active` | `hidden` | `anonymized`)
-- `photo_file_id` nullable
-
-Student belongs to **one** `tenant_id` (invariant 1). No cross-tenant student row.
+Normalized tenant-owned tables: `academic_years`, `classes`, `sections`, `students`, `guardians`, `student_guardians`, `enrollments`, minimal `files` metadata for `students.photo_file_id`. Composite `(id, tenant_id)` foreign keys prevent cross-tenant links. `students.historical_subject_id` is globally unique and stable for post-anonymization history.
 
 ### Physical cards and assignments
 

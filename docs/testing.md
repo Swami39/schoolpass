@@ -1,6 +1,6 @@
 # Testing strategy
 
-**Status:** Architecture only.
+**Status:** Architecture authoritative. Phase 1 + Phase 2 backend tests block merge (RLS, auth, student domain).
 
 Once implementation starts, the suites below **block merge and release**. Architecture supports **deterministic** integration tests without production devices or real money.
 

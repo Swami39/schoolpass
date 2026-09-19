@@ -100,7 +100,23 @@ def require(*permissions: str) -> Callable[..., Any]:
         principal.permissions = allowed
         if permissions and not set(permissions).issubset(allowed):
             raise AuthorizationError()
-        tenant_scoped = any(p.startswith(("tenant:", "staff:", "membership:", "audit:")) for p in permissions)
+        tenant_scoped = any(
+            p.startswith(
+                (
+                    "tenant:",
+                    "staff:",
+                    "membership:",
+                    "audit:",
+                    "students:",
+                    "guardians:",
+                    "enrollments:",
+                    "student_guardians:",
+                    "academic:",
+                    "files:",
+                )
+            )
+            for p in permissions
+        )
         if tenant_scoped and principal.tenant_id is None and not principal.claims.get("plat"):
             raise AuthorizationError("Tenant membership is required")
         return principal

@@ -18,6 +18,8 @@ from schoolpass.db.session import apply_tenant_context, create_engine, session_f
 from schoolpass.identity.models import Role, StaffProfile, Tenant, TenantMembership, User
 from schoolpass.tenancy.context import TenantContext
 
+pytest_plugins = ["fixtures_students"]
+
 
 def _rsa_pair() -> tuple[str, str]:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
