@@ -1,0 +1,25 @@
+name: parent_app
+description: SchoolPass production parent mobile application (Phase 8).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  parent_bus_location_ui:
+    path: ../parent_bus_location_ui
+  parent_transport:
+    path: ../parent_transport
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

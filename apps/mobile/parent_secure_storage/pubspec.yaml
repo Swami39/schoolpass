@@ -1,0 +1,20 @@
+name: parent_secure_storage
+description: Platform secure token backend for SchoolPass parent app (Keystore/Keychain).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^9.2.4
+  parent_app:
+    path: ../parent_app
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from schoolpass.adapters.redis import RedisCache
 from schoolpass.adapters.service_bus import AzureServiceBus, LocalRedisBus
 from schoolpass.attendance.worker import process_attendance_batch
-from schoolpass.config import get_settings, Settings
+from schoolpass.config import Settings, get_settings
 from schoolpass.db.session import apply_tenant_context, create_engine, session_factory
 from schoolpass.identity.models import OutboxEvent
 from schoolpass.notifications.constants import NOTIFICATION_TOPIC_DISPATCH

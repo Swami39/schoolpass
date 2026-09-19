@@ -80,6 +80,10 @@ PERMISSIONS: dict[str, str] = {
     "gps_samples:read": "Read transport GPS location history",
     "parent:gps_read": "Read current bus location for linked children",
     "parent:push_register": "Register mobile device for push notifications",
+    "parent:children_read": "List children linked to the authenticated parent",
+    "parent:attendance_read": "Read attendance for linked children",
+    "parent:notifications_read": "Read parent notification inbox",
+    "parent:notifications_preferences": "Manage parent notification preferences",
 }
 
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -218,6 +222,10 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "enrollments:read",
         "parent:gps_read",
         "parent:push_register",
+        "parent:children_read",
+        "parent:attendance_read",
+        "parent:notifications_read",
+        "parent:notifications_preferences",
     ),
 }
 
