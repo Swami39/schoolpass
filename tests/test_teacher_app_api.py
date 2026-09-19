@@ -199,3 +199,27 @@ async def test_teacher_message_creates_parent_notification(client, teacher_world
             )
         ).scalars().first()
         assert outbox is not None
+
+
+async def test_teacher_message_with_image_multipart(client, teacher_world) -> None:
+    idem = f"teacher-img-{uuid4()}"
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    response = await client.post(
+        "/api/v1/teacher/messages/with-image",
+        headers=auth_headers(teacher_world.teacher_token),
+        data={
+            "title": "Photo",
+            "body": "See attachment",
+            "idempotency_key": idem,
+            "section_id": str(teacher_world.section_id),
+            "student_id": str(teacher_world.student_id),
+            "urgent": "false",
+        },
+        files={"image": ("note.png", png, "image/png")},
+    )
+    assert response.status_code == 200
+    assert response.json()["recipient_count"] >= 1

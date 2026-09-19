@@ -220,6 +220,15 @@ class TeacherMessageRequest(BaseModel):
     body: str = Field(min_length=1)
     urgent: bool = False
     idempotency_key: str = Field(min_length=8, max_length=256)
+    image_file_id: UUID | None = None
+
+
+class TeacherClientDeviceRegisterRequest(BaseModel):
+    device_uuid: UUID
+
+
+class TeacherClientDeviceResponse(BaseModel):
+    client_device_id: UUID
 
 
 class TeacherMessageResponse(BaseModel):

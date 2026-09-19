@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from schoolpass.adapters.blob import BlobStore
@@ -11,6 +11,7 @@ from schoolpass.api.deps import Principal, get_session_factory, require
 from schoolpass.db.session import apply_tenant_context
 from schoolpass.teacher import attendance as teacher_att
 from schoolpass.teacher import classes as teacher_classes
+from schoolpass.teacher import devices as teacher_devices
 from schoolpass.teacher import messages as teacher_messages
 from schoolpass.teacher import nfc_sync as teacher_nfc
 from schoolpass.teacher import profile as teacher_profile
@@ -27,6 +28,8 @@ from schoolpass.teacher.schemas import (
     TeacherAttendanceMarkRequest,
     TeacherClassItem,
     TeacherClassListResponse,
+    TeacherClientDeviceRegisterRequest,
+    TeacherClientDeviceResponse,
     TeacherMeResponse,
     TeacherMessageRequest,
     TeacherMessageResponse,
@@ -317,6 +320,7 @@ async def post_message(
                 idempotency_key=body.idempotency_key,
                 image_bytes=None,
                 image_mime=None,
+                image_file_id=body.image_file_id,
                 blob=blob,
                 request_id=_request_id(request),
             )
@@ -325,3 +329,64 @@ async def post_message(
         recipient_count=result.recipient_count,
         created=result.created,
     )
+
+
+@router.post("/messages/with-image", response_model=TeacherMessageResponse)
+async def post_message_with_image(
+    request: Request,
+    principal: Annotated[Principal, Depends(require("teacher:messages_write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    blob: Annotated[BlobStore, Depends(get_blob)],
+    title: Annotated[str, Form()],
+    body: Annotated[str, Form()],
+    idempotency_key: Annotated[str, Form()],
+    section_id: Annotated[UUID | None, Form()] = None,
+    student_id: Annotated[UUID | None, Form()] = None,
+    urgent: Annotated[bool, Form()] = False,
+    image: Annotated[UploadFile | None, File()] = None,
+) -> TeacherMessageResponse:
+    image_bytes: bytes | None = None
+    image_mime: str | None = None
+    if image is not None:
+        image_bytes = await image.read()
+        image_mime = image.content_type
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            result = await teacher_messages.send_teacher_message(
+                session,
+                _ctx(principal),
+                section_id=section_id,
+                student_id=student_id,
+                title=title,
+                body=body,
+                urgent=urgent,
+                idempotency_key=idempotency_key,
+                image_bytes=image_bytes,
+                image_mime=image_mime,
+                image_file_id=None,
+                blob=blob,
+                request_id=_request_id(request),
+            )
+    return TeacherMessageResponse(
+        message_id=result.message_id,
+        recipient_count=result.recipient_count,
+        created=result.created,
+    )
+
+
+@router.post("/client-devices", response_model=TeacherClientDeviceResponse)
+async def register_client_device(
+    body: TeacherClientDeviceRegisterRequest,
+    principal: Annotated[Principal, Depends(require("teacher:nfc_attendance"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> TeacherClientDeviceResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            device = await teacher_devices.register_teacher_client_device(
+                session,
+                _ctx(principal),
+                device_uuid=body.device_uuid,
+            )
+    return TeacherClientDeviceResponse(client_device_id=device.id)

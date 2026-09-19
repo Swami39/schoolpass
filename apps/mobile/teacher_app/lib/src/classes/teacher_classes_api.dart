@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import '../api/teacher_errors.dart';
 import '../http/authenticated_http_client.dart';
 import 'teacher_class_models.dart';
+import 'teacher_student_models.dart';
 
 class TeacherClassesUnauthorized implements Exception {}
 
@@ -16,10 +18,29 @@ class TeacherClassesApi {
       throw TeacherClassesUnauthorized();
     }
     if (response.statusCode != 200) {
-      throw Exception('Failed to load classes (${response.statusCode})');
+      throw TeacherRequestFailure(response.statusCode);
     }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final items = body['items'] as List<dynamic>;
-    return items.map((e) => TeacherClassAssignment.fromJson(e as Map<String, dynamic>)).toList();
+    return _items(response.body, TeacherClassAssignment.fromJson);
+  }
+
+  Future<List<TeacherStudent>> fetchStudents(String sectionId) async {
+    final response = await _client.getJsonPath('/api/v1/teacher/classes/$sectionId/students');
+    throwIfTeacherDenied(response.statusCode);
+    if (response.statusCode != 200) {
+      throw TeacherRequestFailure(response.statusCode);
+    }
+    return _items(response.body, TeacherStudent.fromJson);
+  }
+
+  List<T> _items<T>(String body, T Function(Map<String, dynamic>) parse) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) {
+      throw TeacherParseFailure();
+    }
+    final items = decoded['items'];
+    if (items is! List) {
+      throw TeacherParseFailure();
+    }
+    return items.whereType<Map<String, dynamic>>().map(parse).toList();
   }
 }

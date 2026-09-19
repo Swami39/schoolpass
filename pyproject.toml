@@ -25,6 +25,7 @@ dependencies = [
   "email-validator>=2.2.0",
   "structlog>=24.4.0",
   "asgi-correlation-id>=4.3.0",
+  "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

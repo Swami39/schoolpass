@@ -34,6 +34,58 @@ class TeacherMessageResult:
     created: bool
 
 
+async def _resolve_teacher_message_image(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    teacher_user_id: UUID,
+    image_file_id: UUID,
+) -> UUID:
+    row = await session.get(FileMetadata, image_file_id)
+    if (
+        row is None
+        or row.tenant_id != tenant_id
+        or row.status != "active"
+        or row.purpose != "teacher_message_image"
+        or row.created_by != teacher_user_id
+    ):
+        raise NotFoundError()
+    return row.id
+
+
+async def store_teacher_message_image(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    image_bytes: bytes,
+    image_mime: str,
+    blob: BlobStore,
+) -> UUID:
+    if ctx.tenant_id is None or ctx.user_id is None:
+        raise NotFoundError()
+    tenant_id = ctx.tenant_id
+    await load_teacher_staff(session, tenant_id=tenant_id, user_id=ctx.user_id)
+    if image_mime not in ALLOWED_IMAGE_MIME:
+        raise ValidationFailed("Unsupported image type")
+    if len(image_bytes) > MAX_IMAGE_BYTES:
+        raise ValidationFailed("Image too large")
+    digest = hashlib.sha256(image_bytes).hexdigest()
+    ext = "jpg" if image_mime == "image/jpeg" else "png" if image_mime == "image/png" else "webp"
+    blob_key = f"{tenant_id}/teacher-messages/{uuid4()}.{ext}"
+    await blob.put(blob_key, image_bytes, content_type=image_mime)
+    file_row = FileMetadata(
+        tenant_id=tenant_id,
+        purpose="teacher_message_image",
+        blob_key=blob_key,
+        sha256=digest,
+        classification="SENSITIVE_CHILD_DATA",
+        created_by=ctx.user_id,
+    )
+    session.add(file_row)
+    await session.flush()
+    return file_row.id
+
+
 async def _guardian_user_ids_for_student(
     session: AsyncSession,
     *,
@@ -72,6 +124,7 @@ async def send_teacher_message(
     idempotency_key: str,
     image_bytes: bytes | None,
     image_mime: str | None,
+    image_file_id: UUID | None,
     blob: BlobStore,
     request_id: str | None,
 ) -> TeacherMessageResult:
@@ -115,27 +168,22 @@ async def send_teacher_message(
             ).scalars()
         )
 
-    image_file_id: UUID | None = None
-    if image_bytes is not None:
-        if image_mime not in ALLOWED_IMAGE_MIME:
-            raise ValidationFailed("Unsupported image type")
-        if len(image_bytes) > MAX_IMAGE_BYTES:
-            raise ValidationFailed("Image too large")
-        digest = hashlib.sha256(image_bytes).hexdigest()
-        ext = "jpg" if image_mime == "image/jpeg" else "png" if image_mime == "image/png" else "webp"
-        blob_key = f"{tenant_id}/teacher-messages/{uuid4()}.{ext}"
-        await blob.put(blob_key, image_bytes, content_type=image_mime)
-        file_row = FileMetadata(
+    resolved_image_file_id: UUID | None = None
+    if image_file_id is not None:
+        resolved_image_file_id = await _resolve_teacher_message_image(
+            session,
             tenant_id=tenant_id,
-            purpose="teacher_message_image",
-            blob_key=blob_key,
-            sha256=digest,
-            classification="SENSITIVE_CHILD_DATA",
-            created_by=ctx.user_id,
+            teacher_user_id=ctx.user_id,
+            image_file_id=image_file_id,
         )
-        session.add(file_row)
-        await session.flush()
-        image_file_id = file_row.id
+    elif image_bytes is not None and image_mime is not None:
+        resolved_image_file_id = await store_teacher_message_image(
+            session,
+            ctx,
+            image_bytes=image_bytes,
+            image_mime=image_mime,
+            blob=blob,
+        )
 
     existing = (
         await session.execute(
@@ -156,7 +204,7 @@ async def send_teacher_message(
         title=title.strip(),
         body=body.strip(),
         urgent=urgent,
-        image_file_id=image_file_id,
+        image_file_id=resolved_image_file_id,
         idempotency_key=idempotency_key,
     )
     try:
@@ -191,8 +239,8 @@ async def send_teacher_message(
                 "teacher_message_id": str(message.id),
                 "urgent": urgent,
             }
-            if image_file_id is not None:
-                payload["image_file_id"] = str(image_file_id)
+            if resolved_image_file_id is not None:
+                payload["image_file_id"] = str(resolved_image_file_id)
             await create_notification_with_outbox(
                 session,
                 tenant_id=tenant_id,

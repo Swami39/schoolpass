@@ -143,7 +143,7 @@ async def test_parent_notification_preferences(client, parent_world) -> None:
         headers=auth_headers(parent_world.parent_token),
     )
     assert loaded.status_code == 200
-    assert len(loaded.json()["items"]) == 4
+    assert len(loaded.json()["items"]) == 5
     updated = await client.put(
         "/api/v1/parent/notification-preferences",
         headers=auth_headers(parent_world.parent_token),

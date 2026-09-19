@@ -1,8 +1,14 @@
+import '../attendance/teacher_attendance_api.dart';
 import '../auth/auth_api.dart';
 import '../auth/auth_repository.dart';
 import '../classes/teacher_classes_api.dart';
 import '../http/authenticated_http_client.dart';
+import '../messages/teacher_messages_api.dart';
+import '../nfc/teacher_nfc_http_client.dart';
+import '../notifications/teacher_notifications_api.dart';
+import '../results/teacher_results_api.dart';
 import '../session/token_store.dart';
+import '../timetable/teacher_timetable_api.dart';
 
 class TeacherDependencies {
   TeacherDependencies({
@@ -53,4 +59,11 @@ class TeacherDependencies {
   final AuthenticatedHttpClient http;
 
   TeacherClassesApi get classesApi => TeacherClassesApi(http);
+  TeacherAttendanceApi get attendanceApi => TeacherAttendanceApi(http);
+  TeacherTimetableApi get timetableApi => TeacherTimetableApi(http);
+  TeacherResultsApi get resultsApi => TeacherResultsApi(http);
+  TeacherMessagesApi get messagesApi => TeacherMessagesApi(http);
+  TeacherNotificationsApi get notificationsApi => TeacherNotificationsApi(http);
+  TeacherDeviceApi get deviceApi => TeacherDeviceApi(http);
+  HttpTeacherClassNfcSyncClient get nfcSyncClient => HttpTeacherClassNfcSyncClient(http);
 }

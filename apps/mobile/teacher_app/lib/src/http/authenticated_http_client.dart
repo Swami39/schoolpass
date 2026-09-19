@@ -30,48 +30,59 @@ class AuthenticatedHttpClient {
     return _request(method: 'GET', path: path);
   }
 
-  Future<AuthenticatedHttpResponse> postJsonPath(String path, {String? body}) {
-    return _request(method: 'POST', path: path, body: body);
+  Future<AuthenticatedHttpResponse> postJsonPath(
+    String path, {
+    String? body,
+    Map<String, String>? extraHeaders,
+  }) {
+    return _request(method: 'POST', path: path, body: body, extraHeaders: extraHeaders);
   }
 
   Future<AuthenticatedHttpResponse> putJsonPath(String path, {required String body}) {
     return _request(method: 'PUT', path: path, body: body);
   }
 
+  Future<AuthenticatedHttpResponse> patchJsonPath(String path, {required String body}) {
+    return _request(method: 'PATCH', path: path, body: body);
+  }
+
   Future<AuthenticatedHttpResponse> _request({
     required String method,
     required String path,
     String? body,
+    Map<String, String>? extraHeaders,
   }) async {
     final uri = _resolve(path);
-    return _send(method: method, uri: uri, body: body);
+    return _send(method: method, uri: uri, body: body, extraHeaders: extraHeaders);
   }
 
   Uri _resolve(String path) {
-    final normalized = path.startsWith('/') ? path.substring(1) : path;
+    final parsed = Uri.parse(path);
+    final normalized = parsed.path.startsWith('/') ? parsed.path.substring(1) : parsed.path;
     final segments = [
       ..._apiOrigin.pathSegments.where((s) => s.isNotEmpty),
       ...normalized.split('/').where((s) => s.isNotEmpty),
     ];
-    return _apiOrigin.replace(pathSegments: segments, query: '');
+    return _apiOrigin.replace(pathSegments: segments, query: parsed.query);
   }
 
   Future<AuthenticatedHttpResponse> _send({
     required String method,
     required Uri uri,
     String? body,
+    Map<String, String>? extraHeaders,
   }) async {
     var access = await _auth.accessToken();
     if (access == null || access.isEmpty) {
       return const AuthenticatedHttpResponse(statusCode: 401, body: '');
     }
-    var response = await _dispatch(method, uri, access, body);
+    var response = await _dispatch(method, uri, access, body, extraHeaders);
     if (response.statusCode != 401) {
       return response;
     }
     try {
       final tokens = await _auth.refreshTokens();
-      response = await _dispatch(method, uri, tokens.accessToken, body);
+      response = await _dispatch(method, uri, tokens.accessToken, body, extraHeaders);
     } on AuthFailure {
       return const AuthenticatedHttpResponse(statusCode: 401, body: '');
     } on AuthNetworkFailure {
@@ -85,10 +96,12 @@ class AuthenticatedHttpClient {
     Uri uri,
     String accessToken,
     String? body,
+    Map<String, String>? extraHeaders,
   ) async {
     final headers = {
       'authorization': 'Bearer $accessToken',
       if (body != null) 'content-type': 'application/json',
+      ...?extraHeaders,
     };
     late http.Response response;
     try {
@@ -99,6 +112,8 @@ class AuthenticatedHttpClient {
           response = await _client.post(uri, headers: headers, body: body ?? '');
         case 'PUT':
           response = await _client.put(uri, headers: headers, body: body);
+        case 'PATCH':
+          response = await _client.patch(uri, headers: headers, body: body);
         default:
           throw UnsupportedError(method);
       }
