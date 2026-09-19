@@ -215,3 +215,104 @@ class TripStop(UUIDPrimaryKeyMixin, Base):
         CheckConstraint("latitude >= -90 AND latitude <= 90", name="ck_trip_stops_latitude"),
         CheckConstraint("longitude >= -180 AND longitude <= 180", name="ck_trip_stops_longitude"),
     )
+
+
+class ClientEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "client_events"
+
+    tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    client_device_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    client_event_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    actor_user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    card_uid: Mapped[str] = mapped_column(String(128), nullable=False)
+    trip_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    trip_stop_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    device_sequence: Mapped[int | None] = mapped_column(nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sync_attempts: Mapped[int] = mapped_column(default=1, nullable=False)
+    processing_state: Mapped[str] = mapped_column(String(64), nullable=False)
+    rejection_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    transport_boarding_record_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("client_device_id", "client_event_id", name="uq_client_events_device_event"),
+        UniqueConstraint("id", "tenant_id", name="uq_client_events_id_tenant"),
+        CheckConstraint("event_type IN ('boarding', 'dropoff')", name="ck_client_events_event_type"),
+        CheckConstraint("sync_attempts >= 1", name="ck_client_events_sync_attempts"),
+    )
+
+
+class TransportBoardingRecord(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "transport_boarding_records"
+
+    tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    trip_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    bus_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    attendant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    student_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    transport_assignment_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    card_assignment_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    physical_card_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    client_event_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    trip_stop_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    source: Mapped[str] = mapped_column(String(32), default="nfc", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="recorded", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["trip_id", "tenant_id"],
+            ["trips.id", "trips.tenant_id"],
+            name="fk_transport_boarding_trip_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["bus_id", "tenant_id"],
+            ["buses.id", "buses.tenant_id"],
+            name="fk_transport_boarding_bus_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["attendant_id", "tenant_id"],
+            ["transport_attendants.id", "transport_attendants.tenant_id"],
+            name="fk_transport_boarding_attendant_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["student_id", "tenant_id"],
+            ["students.id", "students.tenant_id"],
+            name="fk_transport_boarding_student_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["transport_assignment_id", "tenant_id"],
+            ["transport_assignments.id", "transport_assignments.tenant_id"],
+            name="fk_transport_boarding_assignment_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["card_assignment_id", "tenant_id"],
+            ["card_assignments.id", "card_assignments.tenant_id"],
+            name="fk_transport_boarding_card_assignment_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["physical_card_id", "tenant_id"],
+            ["physical_cards.id", "physical_cards.tenant_id"],
+            name="fk_transport_boarding_card_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["client_event_id", "tenant_id"],
+            ["client_events.id", "client_events.tenant_id"],
+            name="fk_transport_boarding_client_event_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["trip_stop_id", "tenant_id"],
+            ["trip_stops.id", "trip_stops.tenant_id"],
+            name="fk_transport_boarding_trip_stop_tenant",
+        ),
+        UniqueConstraint("id", "tenant_id", name="uq_transport_boarding_id_tenant"),
+        UniqueConstraint("client_event_id", name="uq_transport_boarding_client_event"),
+        CheckConstraint("event_type IN ('boarding', 'dropoff')", name="ck_transport_boarding_event_type"),
+        CheckConstraint("source IN ('nfc')", name="ck_transport_boarding_source"),
+        CheckConstraint("status IN ('recorded')", name="ck_transport_boarding_status"),
+    )

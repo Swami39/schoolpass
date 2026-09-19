@@ -198,3 +198,24 @@ class TripResponse(BaseModel):
 class TripListResponse(BaseModel):
     items: list[TripResponse]
     next_cursor: str | None = None
+
+
+class TransportNfcSyncRequest(BaseModel):
+    client_event_id: UUID
+    event_type: str = Field(pattern="^(boarding|dropoff)$")
+    card_uid: str = Field(min_length=1, max_length=128)
+    occurred_at: datetime
+    device_sequence: int | None = Field(default=None, ge=0)
+    trip_id: UUID
+    trip_stop_id: UUID | None = None
+
+
+class TransportNfcSyncResponse(BaseModel):
+    result: str
+    client_event_id: UUID
+    server_event_id: UUID
+    boarding_record_id: UUID | None
+    occurred_at: datetime
+    received_at: datetime
+    rejection_code: str | None = None
+    device_sequence: int | None = None

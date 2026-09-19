@@ -23,6 +23,7 @@ from schoolpass.api.routes.rfid import router as rfid_router
 from schoolpass.api.routes.rfid_ingest import router as rfid_ingest_router
 from schoolpass.api.routes.session import router as session_router
 from schoolpass.api.routes.transport import router as transport_router
+from schoolpass.api.routes.transport_nfc import router as transport_nfc_router
 from schoolpass.config import Settings, get_settings
 from schoolpass.db.session import create_engine, session_factory
 from schoolpass.errors import (
@@ -108,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rfid_ingest_router)
     app.include_router(attendance_router)
     app.include_router(transport_router)
+    app.include_router(transport_nfc_router)
     return app
 
 

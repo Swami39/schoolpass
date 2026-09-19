@@ -74,6 +74,8 @@ PERMISSIONS: dict[str, str] = {
     "transport_attendants:write": "Manage transport attendants",
     "trips:read": "Read transport trips",
     "trips:write": "Manage transport trips",
+    "transport_nfc:sync": "Submit transport NFC client events",
+    "transport_boarding:read": "Read transport boarding records",
 }
 
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -160,6 +162,8 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "transport_attendants:write",
         "trips:read",
         "trips:write",
+        "transport_nfc:sync",
+        "transport_boarding:read",
     ),
     "school_finance": (
         "tenant:read",
@@ -197,6 +201,8 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "transport_assignments:read",
         "trips:read",
         "trips:write",
+        "transport_nfc:sync",
+        "transport_boarding:read",
     ),
     "parent": ("tenant:read", "students:read", "guardians:read", "enrollments:read"),
 }
