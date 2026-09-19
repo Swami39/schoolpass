@@ -1,0 +1,24 @@
+name: parent_app_mobile
+description: SchoolPass parent app production entrypoint (secure storage wired).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  parent_app:
+    path: ../parent_app
+  parent_secure_storage:
+    path: ../parent_secure_storage
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
