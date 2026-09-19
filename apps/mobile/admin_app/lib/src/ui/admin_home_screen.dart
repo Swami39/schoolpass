@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../app/admin_app_controller.dart';
+import '../app/admin_dependencies.dart';
+import 'academic_hub_screen.dart';
 import 'school_profile_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
-  const AdminHomeScreen({required this.controller, super.key});
+  const AdminHomeScreen({required this.controller, required this.deps, super.key});
 
   final AdminAppController controller;
+  final AdminDependencies deps;
 
   static const _sections = <AdminSection, String>{
     AdminSection.dashboard: 'Dashboard',
@@ -71,6 +74,8 @@ class AdminHomeScreen extends StatelessWidget {
           title: 'Dashboard',
           message: 'Operational dashboards will be available in a later phase.',
         );
+      case AdminSection.academic:
+        return AcademicHubScreen(deps: deps);
       default:
         return _PlaceholderPanel(
           title: _sections[controller.section] ?? 'Section',

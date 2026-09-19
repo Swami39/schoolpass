@@ -44,7 +44,7 @@ class _AdminAppShellState extends State<AdminAppShell> {
             case AdminAppPhase.signedOut:
               return LoginScreen(controller: _controller);
             case AdminAppPhase.signedIn:
-              return AdminHomeScreen(controller: _controller);
+              return AdminHomeScreen(controller: _controller, deps: widget.deps);
           }
         },
       ),
