@@ -1,6 +1,6 @@
 # Database architecture
 
-**Status:** Architecture is authoritative. Phase 1: identity, tenancy, RLS, audit, outbox. Phase 2: students, guardians, enrollments, academic structure — see [phase-2.md](phase-2.md).
+**Status:** Architecture is authoritative. Phase 1–3 backend domains implemented — see [phase-1.md](phase-1.md), [phase-2.md](phase-2.md), [phase-3.md](phase-3.md).
 
 Shared PostgreSQL for all schools. **Every tenant-owned table has `tenant_id UUID NOT NULL`.** Row Level Security is **ENABLE + FORCE** on those tables. Application `WHERE tenant_id` is not the isolation control.
 

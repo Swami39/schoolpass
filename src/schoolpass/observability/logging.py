@@ -18,6 +18,9 @@ _REDACT_KEYS = {
     "jwt",
     "private_key",
     "webhook",
+    "hf_uid",
+    "uhf_epc",
+    "uhf_tid",
 }
 
 
