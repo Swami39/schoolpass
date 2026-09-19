@@ -129,6 +129,7 @@ def require(*permissions: str) -> Callable[..., Any]:
                     "transport_boarding:",
                     "gps_samples:",
                     "parent:",
+                    "teacher:",
                 )
             )
             for p in permissions
