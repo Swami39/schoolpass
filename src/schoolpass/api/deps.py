@@ -118,6 +118,7 @@ def require(*permissions: str) -> Callable[..., Any]:
                     "rfid_readers:",
                     "rfid_devices:",
                     "rfid_events:",
+                    "attendance:",
                 )
             )
             for p in permissions

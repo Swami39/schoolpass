@@ -54,6 +54,12 @@ PERMISSIONS: dict[str, str] = {
     "rfid_devices:update": "Update RFID devices",
     "rfid_devices:rotate_keys": "Rotate RFID device keys",
     "rfid_events:read": "Read RFID events",
+    "attendance:read": "Read attendance records",
+    "attendance:create": "Create attendance records",
+    "attendance:update": "Update attendance records",
+    "attendance:correct": "Correct attendance records",
+    "attendance:finalize": "Finalize daily attendance",
+    "attendance:manage_policy": "Manage attendance policies",
 }
 
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -72,6 +78,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "rfid_readers:read",
         "rfid_devices:read",
         "rfid_events:read",
+        "attendance:read",
     ),
     "platform_billing": ("tenant:read",),
     "school_admin": (
@@ -119,6 +126,12 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "rfid_devices:update",
         "rfid_devices:rotate_keys",
         "rfid_events:read",
+        "attendance:read",
+        "attendance:create",
+        "attendance:update",
+        "attendance:correct",
+        "attendance:finalize",
+        "attendance:manage_policy",
     ),
     "school_finance": (
         "tenant:read",
@@ -132,6 +145,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "rfid_readers:read",
         "rfid_devices:read",
         "rfid_events:read",
+        "attendance:read",
     ),
     "teacher": (
         "tenant:read",
@@ -143,6 +157,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "card_assignments:read",
         "rfid_readers:read",
         "rfid_events:read",
+        "attendance:read",
     ),
     "bus_attendant": ("tenant:read", "students:read", "cards:read", "card_assignments:read"),
     "parent": ("tenant:read", "students:read", "guardians:read", "enrollments:read"),
