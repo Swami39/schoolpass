@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from schoolpass.adapters.redis import Cache
+from schoolpass.attendance.engine import enqueue_observation_processing
 from schoolpass.cards.normalize import normalize_hf_uid, normalize_uhf_epc, normalize_uhf_tid
 from schoolpass.config import Settings
 from schoolpass.db.mixins import utcnow
@@ -366,6 +367,12 @@ async def process_event_payload(
         created_at=utcnow(),
     )
     session.add(observation)
+    await session.flush()
+    await enqueue_observation_processing(
+        session,
+        tenant_id=tenant_id,
+        observation_id=observation.id,
+    )
 
     processing.status = "processed"
     processing.processed_at = utcnow()

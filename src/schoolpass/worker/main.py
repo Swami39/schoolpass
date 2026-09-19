@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from schoolpass.adapters.redis import RedisCache
 from schoolpass.adapters.service_bus import AzureServiceBus, LocalRedisBus
+from schoolpass.attendance.worker import process_attendance_batch
 from schoolpass.config import get_settings
 from schoolpass.db.session import apply_tenant_context, create_engine, session_factory
 from schoolpass.identity.models import OutboxEvent
@@ -81,8 +82,9 @@ async def run() -> None:
     configure_logging(settings.log_level)
     log.info("worker_started", env=settings.app_env)
     while True:
-        count = await publish_outbox_batch()
-        await asyncio.sleep(1 if count else 5)
+        outbox = await publish_outbox_batch()
+        attendance = await process_attendance_batch()
+        await asyncio.sleep(1 if outbox or attendance else 5)
 
 
 def main() -> None:
