@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "schoolpass"
+version = "0.1.0"
+description = "SchoolPass production backend foundation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic>=2.9.0",
+  "pydantic-settings>=2.6.0",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "asyncpg>=0.30.0",
+  "psycopg[binary]>=3.2.0",
+  "alembic>=1.14.0",
+  "redis>=5.2.0",
+  "argon2-cffi>=23.1.0",
+  "pyjwt[crypto]>=2.10.0",
+  "cryptography>=44.0.0",
+  "pyotp>=2.9.0",
+  "email-validator>=2.2.0",
+  "structlog>=24.4.0",
+  "asgi-correlation-id>=4.3.0",
+]
+
+[project.optional-dependencies]
+azure = [
+  "azure-servicebus>=7.12.0",
+  "azure-storage-blob>=12.23.0",
+  "azure-identity>=1.19.0",
+]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+  "httpx>=0.27.0",
+  "ruff>=0.8.0",
+  "mypy>=1.13.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["schoolpass"]
+
+[[tool.mypy.overrides]]
+module = ["schoolpass.api.main"]
+disable_error_code = ["arg-type"]
+
+[tool.alembic]
+script_location = "alembic"
+prepend_sys_path = ["src"]
