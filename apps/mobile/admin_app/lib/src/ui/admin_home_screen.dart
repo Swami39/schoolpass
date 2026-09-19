@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/admin_app_controller.dart';
 import '../app/admin_dependencies.dart';
 import 'academic_hub_screen.dart';
+import 'operations_hub_screen.dart';
 import 'people_hub_screen.dart';
 import 'school_profile_screen.dart';
 
@@ -81,6 +82,11 @@ class AdminHomeScreen extends StatelessWidget {
       case AdminSection.students:
       case AdminSection.guardians:
         return PeopleHubScreen(deps: deps);
+      case AdminSection.cards:
+      case AdminSection.transport:
+      case AdminSection.rfid:
+      case AdminSection.operations:
+        return OperationsHubScreen(deps: deps);
       default:
         return _PlaceholderPanel(
           title: _sections[controller.section] ?? 'Section',

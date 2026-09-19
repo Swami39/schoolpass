@@ -94,3 +94,30 @@ class RfidIngestAcceptedResponse(BaseModel):
     duplicate: bool = False
     event_id: UUID
     resolution_status: str | None = None
+
+
+class RfidEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    reader_id: UUID
+    device_uuid: UUID
+    physical_card_id: UUID | None
+    student_id: UUID | None
+    hf_uid: str | None
+    uhf_epc: str | None
+    uhf_tid: str | None
+    antenna: int | None
+    rssi: float | None
+    direction: str | None
+    occurred_at: datetime
+    received_at: datetime
+    ingest_status: str
+    processing_status: str | None = None
+    resolution_status: str | None = None
+
+
+class RfidEventListResponse(BaseModel):
+    items: list[RfidEventResponse]
+    next_cursor: str | None = None

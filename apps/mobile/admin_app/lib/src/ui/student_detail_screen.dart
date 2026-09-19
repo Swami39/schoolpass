@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
+import '../operations/operations_models.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
 import 'student_form_screen.dart';
@@ -20,6 +21,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
   StudentDetail? _student;
   List<EnrollmentDetail> _enrollments = const [];
   List<StudentGuardianLink> _guardianLinks = const [];
+  List<CardAssignmentItem> _cardAssignments = const [];
   List<GuardianDetail> _allGuardians = const [];
   bool _loading = true;
   String? _error;
@@ -39,6 +41,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       _student = await widget.deps.peopleApi.fetchStudent(widget.studentId);
       _enrollments = await widget.deps.peopleApi.fetchStudentEnrollments(widget.studentId);
       _guardianLinks = await widget.deps.peopleApi.fetchStudentGuardians(widget.studentId);
+      _cardAssignments = await widget.deps.operationsApi.fetchStudentCardAssignments(widget.studentId);
     } on AdminPeopleUnauthorized {
       _error = 'Session expired.';
     } on AdminPeopleApiFailure catch (e) {
@@ -327,6 +330,17 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                     ],
                                   )
                                 : null,
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      Text('Cards', style: Theme.of(context).textTheme.titleMedium),
+                      if (_cardAssignments.isEmpty)
+                        const Text('No card assignments')
+                      else
+                        ..._cardAssignments.map(
+                          (a) => ListTile(
+                            title: Text('Card ${a.physicalCardId.substring(0, 8)}…'),
+                            subtitle: Text(a.status),
                           ),
                         ),
                       const SizedBox(height: 16),

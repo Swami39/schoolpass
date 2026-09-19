@@ -108,6 +108,7 @@ def require(*permissions: str) -> Callable[..., Any]:
                     "membership:",
                     "audit:",
                     "people:",
+                    "operations:",
                     "students:",
                     "guardians:",
                     "enrollments:",
