@@ -46,16 +46,23 @@ class SyncResultCategory(StrEnum):
 
 
 REJECTION_UNKNOWN_CARD = "unknown_card"
-REJECTION_CARD_INACTIVE = "card_not_active"
+REJECTION_CARD_BLOCKED = "card_blocked"
+REJECTION_CARD_RETIRED = "card_retired"
+REJECTION_CARD_UNASSIGNED = "card_unassigned"
 REJECTION_NO_TRANSPORT_ASSIGNMENT = "no_transport_assignment"
 REJECTION_ROUTE_MISMATCH = "route_mismatch"
 REJECTION_STOP_MISMATCH = "stop_mismatch"
+REJECTION_INVALID_STOP = "invalid_stop"
 REJECTION_TRIP = "invalid_trip"
-REJECTION_TRIP_STATE = "invalid_trip_state"
+REJECTION_CANCELLED_TRIP = "cancelled_trip"
+REJECTION_TRIP_NOT_STARTED = "trip_not_started"
+REJECTION_INVALID_EVENT_WINDOW = "invalid_event_window"
+REJECTION_INVALID_TRIP_PHASE = "invalid_trip_phase"
+REJECTION_BOARDING_REQUIRED = "boarding_required"
 REJECTION_ATTENDANT = "unauthorized_attendant"
 REJECTION_DEVICE = "invalid_device"
-REJECTION_EVENT_TYPE = "invalid_event_type"
-REJECTION_TRIP_STOP = "invalid_trip_stop"
+# Legacy alias retained in processing_state only for events stored before 6B.2
+REJECTION_TRIP_STOP = REJECTION_INVALID_STOP
 
 
 @dataclass(frozen=True)
@@ -120,39 +127,69 @@ async def _load_trip(session: AsyncSession, tenant_id: UUID, trip_id: UUID) -> T
     ).scalar_one_or_none()
 
 
-def _trip_occurrence_window_allows(trip: Trip, occurred_at: datetime) -> bool:
+def _trip_window_rejection(trip: Trip, occurred_at: datetime) -> str | None:
+    """Occurrence window semantics: inclusive [started_at, ended_at] when ended_at is set."""
     if trip.status == "cancelled":
-        return False
+        return REJECTION_CANCELLED_TRIP
     if trip.started_at is None:
-        return False
+        return REJECTION_TRIP_NOT_STARTED
     started = _ensure_utc(trip.started_at)
     if occurred_at < started:
-        return False
+        return REJECTION_INVALID_EVENT_WINDOW
     if trip.ended_at is not None and occurred_at > _ensure_utc(trip.ended_at):
-        return False
-    return True
+        return REJECTION_INVALID_EVENT_WINDOW
+    return None
 
 
-def _trip_state_allows_event(trip: Trip, event_type: str, occurred_at: datetime) -> bool:
-    if not _trip_occurrence_window_allows(trip, occurred_at):
-        return False
+def _trip_phase_rejection(trip: Trip, event_type: str) -> str | None:
+    """Current trip status vs event type (after occurrence window checks)."""
     if event_type == "boarding":
         if trip.status == "scheduled":
-            return False
-        return True
+            return REJECTION_TRIP_NOT_STARTED
+        return None
     if event_type == "dropoff":
         if trip.status in {"scheduled", "boarding"}:
-            return False
-        return True
-    return False
+            return REJECTION_INVALID_TRIP_PHASE
+        return None
+    return None
 
 
 def _map_card_rejection(resolution_status: str) -> str:
     if resolution_status == RESOLUTION_UNKNOWN:
         return REJECTION_UNKNOWN_CARD
-    if resolution_status in {RESOLUTION_BLOCKED, RESOLUTION_RETIRED, RESOLUTION_UNASSIGNED}:
-        return REJECTION_CARD_INACTIVE
+    if resolution_status == RESOLUTION_BLOCKED:
+        return REJECTION_CARD_BLOCKED
+    if resolution_status == RESOLUTION_RETIRED:
+        return REJECTION_CARD_RETIRED
+    if resolution_status == RESOLUTION_UNASSIGNED:
+        return REJECTION_CARD_UNASSIGNED
     return REJECTION_UNKNOWN_CARD
+
+
+async def _dropoff_sequence_rejection(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    trip_id: UUID,
+    student_id: UUID,
+    occurred_at: datetime,
+) -> str | None:
+    prior_boarding = (
+        await session.execute(
+            select(TransportBoardingRecord.id)
+            .where(
+                TransportBoardingRecord.tenant_id == tenant_id,
+                TransportBoardingRecord.trip_id == trip_id,
+                TransportBoardingRecord.student_id == student_id,
+                TransportBoardingRecord.event_type == "boarding",
+                TransportBoardingRecord.occurred_at <= occurred_at,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if prior_boarding is None:
+        return REJECTION_BOARDING_REQUIRED
+    return None
 
 
 async def _fetch_existing_event(
@@ -196,6 +233,8 @@ async def _record_rejection(
     rejection_code: str,
     request_id: str | None,
 ) -> NfcSyncResult:
+    if event.rejection_code is not None:
+        return _result_from_existing(event, replay=True)
     event.processing_state = f"{PROCESSING_REJECTED_PREFIX}{rejection_code}"
     event.rejection_code = rejection_code
     event.updated_at = utcnow()
@@ -251,7 +290,7 @@ async def _validate_trip_stop(
         )
     ).scalar_one_or_none()
     if stop is None:
-        return REJECTION_TRIP_STOP
+        return REJECTION_INVALID_STOP
     return None
 
 
@@ -341,9 +380,15 @@ async def sync_transport_nfc_event(
     stop_reject = await _validate_trip_stop(session, tenant_id, trip.id, trip_stop_id)
     if stop_reject is not None:
         return await _record_rejection(session, ctx, event, rejection_code=stop_reject, request_id=request_id)
-    if not _trip_state_allows_event(trip, event_type, occurred_at):
+    window_reject = _trip_window_rejection(trip, occurred_at)
+    if window_reject is not None:
         return await _record_rejection(
-            session, ctx, event, rejection_code=REJECTION_TRIP_STATE, request_id=request_id
+            session, ctx, event, rejection_code=window_reject, request_id=request_id
+        )
+    phase_reject = _trip_phase_rejection(trip, event_type)
+    if phase_reject is not None:
+        return await _record_rejection(
+            session, ctx, event, rejection_code=phase_reject, request_id=request_id
         )
 
     resolution = await resolve_card(
@@ -396,6 +441,19 @@ async def sync_transport_nfc_event(
         if stop is not None and transport_assignment.stop_id != stop.route_stop_id:
             return await _record_rejection(
                 session, ctx, event, rejection_code=REJECTION_STOP_MISMATCH, request_id=request_id
+            )
+
+    if event_type == "dropoff":
+        sequence_reject = await _dropoff_sequence_rejection(
+            session,
+            tenant_id,
+            trip_id=trip.id,
+            student_id=resolution.student_id,
+            occurred_at=occurred_at,
+        )
+        if sequence_reject is not None:
+            return await _record_rejection(
+                session, ctx, event, rejection_code=sequence_reject, request_id=request_id
             )
 
     boarding = TransportBoardingRecord(

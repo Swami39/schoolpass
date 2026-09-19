@@ -45,7 +45,15 @@ async def test_successful_boarding(client: AsyncClient, nfc_world: NfcWorld) -> 
 
 async def test_successful_dropoff(db_factory, student_world, settings, client: AsyncClient) -> None:
     world = await build_nfc_world(db_factory, student_world, settings, trip_status="in_progress")
-    body = await _sync(client, world, event_type="dropoff")
+    t0 = datetime.now(tz=UTC)
+    await _sync(client, world, event_type="boarding", occurred_at=t0, client_event_id=uuid4())
+    body = await _sync(
+        client,
+        world,
+        event_type="dropoff",
+        occurred_at=t0 + timedelta(minutes=2),
+        client_event_id=uuid4(),
+    )
     assert body["result"] == "processed"
 
 
@@ -211,7 +219,7 @@ async def test_inactive_device(client: AsyncClient, nfc_world: NfcWorld, db_fact
 async def test_scheduled_trip_rejected(db_factory, student_world, settings, client: AsyncClient) -> None:
     world = await build_nfc_world(db_factory, student_world, settings, trip_status="scheduled")
     body = await _sync(client, world)
-    assert body["rejection_code"] == "invalid_trip_state"
+    assert body["rejection_code"] == "trip_not_started"
 
 
 async def test_completed_trip_historical_accept(
@@ -249,7 +257,7 @@ async def test_outside_trip_window(db_factory, student_world, settings, client: 
             assert trip is not None and trip.started_at is not None
             too_early = trip.started_at - timedelta(hours=1)
     body = await _sync(client, world, occurred_at=too_early)
-    assert body["rejection_code"] == "invalid_trip_state"
+    assert body["rejection_code"] == "invalid_event_window"
 
 
 async def test_cross_tenant_trip_not_found(
