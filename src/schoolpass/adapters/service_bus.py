@@ -34,6 +34,20 @@ class LocalRedisBus:
         await self._cache._client.rpush(f"bus:{topic}", payload)  # noqa: SLF001
         log.info("bus_published", topic=topic, message_id=message.get("id"))
 
+    async def consume_batch(self, topic: str, *, limit: int = 25) -> list[dict[str, Any]]:
+        key = f"bus:{topic}"
+        messages: list[dict[str, Any]] = []
+        for _ in range(limit):
+            raw = await self._cache._client.lpop(key)  # noqa: SLF001
+            if raw is None:
+                break
+            text = raw.decode() if isinstance(raw, bytes) else str(raw)
+            try:
+                messages.append(json.loads(text))
+            except json.JSONDecodeError:
+                log.warning("bus_message_invalid_json", topic=topic)
+        return messages
+
     async def close(self) -> None:
         return None
 

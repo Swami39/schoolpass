@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     azure_service_bus_fully_qualified_namespace: str = ""
     azure_blob_connection_string: str = ""
 
+    fcm_project_id: str = "schoolpass-test"
+    fcm_enabled: bool = False
+
     cors_origins: str = ""
 
     rfid_request_max_skew_seconds: int = 300

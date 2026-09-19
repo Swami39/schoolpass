@@ -28,6 +28,7 @@ from schoolpass.attendance.rules import (
 )
 from schoolpass.db.mixins import utcnow
 from schoolpass.identity.models import Tenant
+from schoolpass.notifications.producers import emit_attendance_signal_notifications
 from schoolpass.observability.metrics import metrics
 from schoolpass.people.models import Enrollment, Student
 from schoolpass.rfid.models import RfidEvent, RfidObservation, RfidReader
@@ -275,6 +276,15 @@ async def process_observation(
     if updated:
         record.updated_at = utcnow()
         metrics.increment("attendance_records_updated_total")
+    if signal_created:
+        await emit_attendance_signal_notifications(
+            session,
+            tenant_id=tenant_id,
+            student_id=observation.student_id,
+            signal_id=signal.id,
+            direction=direction,
+            correlation_id=str(observation.id),
+        )
     return ProcessResult(status="processed", signal_created=signal_created, record_updated=updated)
 
 
