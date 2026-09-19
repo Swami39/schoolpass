@@ -1,6 +1,6 @@
 # Transport NFC bus attendance (Phase 6B.1–6B.2)
 
-Server-side foundation for mobile NFC sync. See also [nfc.md](nfc.md). Mobile outbox and offline sync (Phase 6B.3): [mobile-nfc-outbox.md](mobile-nfc-outbox.md).
+Server-side foundation for mobile NFC sync. See also [nfc.md](nfc.md). Mobile outbox and offline sync (Phase 6B.3): [mobile-nfc-outbox.md](mobile-nfc-outbox.md). GPS tracking (Phase 6C): [transport-gps.md](transport-gps.md).
 
 ## Event vs boarding record
 

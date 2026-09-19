@@ -219,3 +219,52 @@ class TransportNfcSyncResponse(BaseModel):
     received_at: datetime
     rejection_code: str | None = None
     device_sequence: int | None = None
+
+
+class TransportGpsSampleRequest(BaseModel):
+    client_sample_id: UUID
+    trip_id: UUID
+    latitude: Decimal = Field(ge=Decimal("-90"), le=Decimal("90"))
+    longitude: Decimal = Field(ge=Decimal("-180"), le=Decimal("180"))
+    occurred_at: datetime
+    bus_id: UUID | None = None
+    accuracy_meters: Decimal | None = Field(default=None, ge=0)
+    altitude_meters: Decimal | None = None
+    speed_mps: Decimal | None = Field(default=None, ge=0)
+    heading_degrees: Decimal | None = Field(default=None, ge=0, lt=Decimal("360"))
+    device_sequence: int | None = Field(default=None, ge=0)
+    source: str = Field(default="phone_gnss", pattern="^(phone_gnss|hardware_tracker)$")
+
+
+class TransportGpsBatchSyncRequest(BaseModel):
+    samples: list[TransportGpsSampleRequest] = Field(min_length=1, max_length=50)
+
+
+class TransportGpsSampleSyncResult(BaseModel):
+    result: str
+    client_sample_id: UUID
+    server_sample_id: UUID
+    occurred_at: datetime
+    received_at: datetime
+    rejection_code: str | None = None
+    device_sequence: int | None = None
+
+
+class TransportGpsBatchSyncResponse(BaseModel):
+    results: list[TransportGpsSampleSyncResult]
+
+
+class LocationSampleResponse(BaseModel):
+    id: UUID
+    trip_id: UUID
+    bus_id: UUID
+    latitude: Decimal
+    longitude: Decimal
+    accuracy_meters: Decimal | None
+    occurred_at: datetime
+    received_at: datetime
+    source: str
+
+
+class LocationSampleListResponse(BaseModel):
+    items: list[LocationSampleResponse]

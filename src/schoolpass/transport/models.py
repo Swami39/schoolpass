@@ -316,3 +316,54 @@ class TransportBoardingRecord(UUIDPrimaryKeyMixin, Base):
         CheckConstraint("source IN ('nfc')", name="ck_transport_boarding_source"),
         CheckConstraint("status IN ('recorded')", name="ck_transport_boarding_status"),
     )
+
+
+class LocationSample(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "location_samples"
+
+    tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    client_device_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    client_sample_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    trip_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    bus_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    attendant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    latitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    accuracy_meters: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    altitude_meters: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    heading_degrees: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    device_sequence: Mapped[int | None] = mapped_column(nullable=True)
+    source: Mapped[str] = mapped_column(String(32), default="phone_gnss", nullable=False)
+    processing_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    rejection_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("client_device_id", "client_sample_id", name="uq_location_samples_device_sample"),
+        UniqueConstraint("id", "tenant_id", name="uq_location_samples_id_tenant"),
+        CheckConstraint("latitude >= -90 AND latitude <= 90", name="ck_location_samples_latitude"),
+        CheckConstraint("longitude >= -180 AND longitude <= 180", name="ck_location_samples_longitude"),
+        CheckConstraint(
+            "accuracy_meters IS NULL OR accuracy_meters >= 0",
+            name="ck_location_samples_accuracy",
+        ),
+        CheckConstraint(
+            "speed_mps IS NULL OR speed_mps >= 0",
+            name="ck_location_samples_speed",
+        ),
+        CheckConstraint(
+            "heading_degrees IS NULL OR (heading_degrees >= 0 AND heading_degrees < 360)",
+            name="ck_location_samples_heading",
+        ),
+        CheckConstraint(
+            "processing_state IN ('recorded', 'rejected')",
+            name="ck_location_samples_processing_state",
+        ),
+        CheckConstraint(
+            "source IN ('phone_gnss', 'hardware_tracker')",
+            name="ck_location_samples_source",
+        ),
+    )
