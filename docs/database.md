@@ -1,6 +1,6 @@
 # Database architecture
 
-**Status:** Architecture only. No Alembic models in this phase. Aligned with the hardening pass.
+**Status:** Architecture is authoritative. Phase 1 implemented identity, tenancy, RLS, audit, and outbox tables. Product-domain tables remain future work. See [phase-1.md](phase-1.md).
 
 Shared PostgreSQL for all schools. **Every tenant-owned table has `tenant_id UUID NOT NULL`.** Row Level Security is **ENABLE + FORCE** on those tables. Application `WHERE tenant_id` is not the isolation control.
 
@@ -34,9 +34,13 @@ Related: [architecture.md](architecture.md) §5, [security.md](security.md).
 
 ## Tenant-owned vs platform tables
 
-**Tenant-owned (FORCE RLS):** students, enrollments, guardians, physical_cards, card_assignments, gates, readers, rfid_events, rfid_event_processing, attendance_observations, attendance_records, buses, routes, stops, trips, transport_assignments, location_samples, academics, results, announcements, invoices, payments (school-fee), files, client_devices, client_events, notifications, notification_deliveries, push_tokens, staff_profiles, tenant_memberships, etc.
+**Tenant-owned (FORCE RLS):** students, enrollments, guardians, physical_cards, card_assignments, gates, readers, rfid_events, rfid_event_processing, attendance_observations, attendance_records, buses, routes, stops, trips, transport_assignments, location_samples, academics, results, announcements, invoices, payments (school-fee), files, client_events, notifications, notification_deliveries, push_tokens, staff_profiles, tenant_memberships, etc.
 
-**Platform (no tenant RLS; app RBAC):** `tenants`, `plans`, `platform_subscriptions`, `platform_payments`, `permissions`, `users` (global identity), `refresh_tokens`.
+**Phase 1 `client_devices` exception:** implemented as a user-scoped platform table (no `tenant_id`) because devices belong to global `users` before school session binding. NFC `client_events` remain tenant-owned in later phases.
+
+**Platform (no tenant RLS; app RBAC):** `tenants`, `plans`, `platform_subscriptions`, `platform_payments`, `permissions`, `users` (global identity), `refresh_tokens`, `platform_memberships` (Phase 1: `platform_*` roles have no school tenant).
+
+**Infrastructure exception:** `outbox` has no tenant RLS so a publisher can drain all tenants. Payloads are identifiers only. Documented in [phase-1.md](phase-1.md).
 
 **Hybrid:** `audit_logs.tenant_id` nullable (platform actions). `outbox.tenant_id` set when the fact is tenant-scoped (workers use it to set GUCs). `payment_webhooks` includes `rail` (`school_fee` | `platform_saas`) and optional `tenant_id`.
 
