@@ -42,6 +42,26 @@ class AdminOperationsApi {
 
   Future<List<TripItem>> fetchTrips() => _list('api/v1/admin/trips', TripItem.fromJson);
 
+  Future<OperationsOverview> fetchOperationsOverview() async {
+    final response = await _http.getJsonPath('api/v1/admin/operations/overview');
+    if (response.statusCode == 401) throw AdminOperationsUnauthorized();
+    if (response.statusCode != 200) throw AdminOperationsApiFailure('Request failed (${response.statusCode})');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) throw AdminOperationsApiFailure('Malformed response');
+    return OperationsOverview.fromJson(decoded);
+  }
+
+  Future<List<BoardingRecordItem>> fetchBoardingRecords() =>
+      _list('api/v1/admin/boarding-records', BoardingRecordItem.fromJson);
+
+  Future<List<LocationSampleItem>> fetchLocationSamples() =>
+      _list('api/v1/admin/location-samples', LocationSampleItem.fromJson);
+
+  Future<List<RouteItem>> fetchRoutes() => _list('api/v1/admin/routes', RouteItem.fromJson);
+
+  Future<List<TransportAttendantItem>> fetchTransportAttendants() =>
+      _list('api/v1/admin/transport-attendants', TransportAttendantItem.fromJson);
+
   Future<List<TransportAssignmentItem>> fetchTransportAssignments({String? studentId}) {
     final path = studentId == null
         ? 'api/v1/admin/transport-assignments'

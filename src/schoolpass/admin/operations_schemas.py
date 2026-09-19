@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -86,3 +86,75 @@ TripResponse = transport_schemas.TripResponse
 TripListResponse = transport_schemas.TripListResponse
 TransportAssignmentResponse = transport_schemas.TransportAssignmentResponse
 TransportAssignmentListResponse = transport_schemas.TransportAssignmentListResponse
+TransportAttendantResponse = transport_schemas.TransportAttendantResponse
+TransportAttendantListResponse = transport_schemas.TransportAttendantListResponse
+RouteResponse = transport_schemas.RouteResponse
+RouteListResponse = transport_schemas.RouteListResponse
+RouteStopResponse = transport_schemas.RouteStopResponse
+RouteStopListResponse = transport_schemas.RouteStopListResponse
+TransportBoardingRecordResponse = transport_schemas.TransportBoardingRecordResponse
+TransportBoardingRecordListResponse = transport_schemas.TransportBoardingRecordListResponse
+LocationSampleResponse = transport_schemas.LocationSampleResponse
+LocationSampleListResponse = transport_schemas.LocationSampleListResponse
+
+
+class AdminTransportAssignmentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    student_id: UUID
+    route_id: UUID
+    stop_id: UUID
+    effective_from: date
+    effective_to: date | None = None
+
+
+class AdminTransportAssignmentUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    route_id: UUID | None = None
+    stop_id: UUID | None = None
+    effective_from: date | None = None
+    effective_to: date | None = None
+
+
+class AdminTransportAssignmentExpire(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    effective_to: date
+
+
+class AdminTransportAttendantCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: UUID
+    employee_code: str = Field(min_length=1, max_length=64)
+
+
+class AdminTransportAttendantUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_code: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class AdminRouteCreate(transport_schemas.RouteCreate):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AdminRouteUpdate(transport_schemas.RouteUpdate):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AdminRouteStopCreate(transport_schemas.RouteStopCreate):
+    model_config = ConfigDict(extra="forbid")
+
+
+class OperationsOverviewResponse(BaseModel):
+    active_buses: int
+    active_trips: int
+    active_transport_assignments: int
+    active_card_assignments: int
+    pending_card_assignments: int
+    registered_cards: int
+    blocked_cards: int
+    rfid_events_last_24h: int
+    boarding_events_last_24h: int

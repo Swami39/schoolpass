@@ -31,10 +31,12 @@ from schoolpass.transport.lifecycle import (
 )
 from schoolpass.transport.models import (
     Bus,
+    LocationSample,
     Route,
     RouteStop,
     TransportAssignment,
     TransportAttendant,
+    TransportBoardingRecord,
     Trip,
     TripStop,
 )
@@ -1722,6 +1724,78 @@ async def list_trips(
             or_(
                 Trip.created_at < created_at,
                 and_(Trip.created_at == created_at, Trip.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+async def list_boarding_records(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    trip_id: UUID | None,
+    student_id: UUID | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[TransportBoardingRecord], str | None]:
+    tenant_id = _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(TransportBoardingRecord).where(TransportBoardingRecord.tenant_id == tenant_id)
+    stmt = stmt.order_by(TransportBoardingRecord.occurred_at.desc(), TransportBoardingRecord.id.desc())
+    if trip_id is not None:
+        stmt = stmt.where(TransportBoardingRecord.trip_id == trip_id)
+    if student_id is not None:
+        stmt = stmt.where(TransportBoardingRecord.student_id == student_id)
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                TransportBoardingRecord.created_at < created_at,
+                and_(TransportBoardingRecord.created_at == created_at, TransportBoardingRecord.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+async def list_location_samples(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    trip_id: UUID | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[LocationSample], str | None]:
+    tenant_id = _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(LocationSample).where(
+        LocationSample.tenant_id == tenant_id,
+        LocationSample.processing_state == "recorded",
+    )
+    stmt = stmt.order_by(LocationSample.occurred_at.desc(), LocationSample.id.desc())
+    if trip_id is not None:
+        stmt = stmt.where(LocationSample.trip_id == trip_id)
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                LocationSample.created_at < created_at,
+                and_(LocationSample.created_at == created_at, LocationSample.id < row_id),
             )
         )
     stmt = stmt.limit(limit + 1)

@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from schoolpass.admin import operations_dashboard as ops_dashboard
 from schoolpass.admin import operations_schemas as aos
 from schoolpass.api.deps import Principal, get_session_factory, require
 from schoolpass.api.routes.admin import _ctx, _request_id
@@ -495,5 +496,376 @@ async def admin_list_transport_assignments(
             )
     return aos.TransportAssignmentListResponse(
         items=[aos.TransportAssignmentResponse.model_validate(r, from_attributes=True) for r in rows],
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/operations/overview", response_model=aos.OperationsOverviewResponse)
+async def admin_operations_overview(
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.OperationsOverviewResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            metrics = await ops_dashboard.operations_overview(session, _ctx(principal))
+    return aos.OperationsOverviewResponse.model_validate(metrics)
+
+
+@router.get("/transport-assignments/{assignment_id}", response_model=aos.TransportAssignmentResponse)
+async def admin_get_transport_assignment(
+    assignment_id: UUID,
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAssignmentResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.get_transport_assignment(session, _ctx(principal), assignment_id)
+    return aos.TransportAssignmentResponse.model_validate(row, from_attributes=True)
+
+
+@router.post("/transport-assignments", response_model=aos.TransportAssignmentResponse)
+async def admin_create_transport_assignment(
+    request: Request,
+    body: aos.AdminTransportAssignmentCreate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAssignmentResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.create_transport_assignment(
+                session,
+                _ctx(principal),
+                student_id=body.student_id,
+                route_id=body.route_id,
+                stop_id=body.stop_id,
+                effective_from=body.effective_from,
+                effective_to=body.effective_to,
+                request_id=_request_id(request),
+            )
+    return aos.TransportAssignmentResponse.model_validate(row, from_attributes=True)
+
+
+@router.patch("/transport-assignments/{assignment_id}", response_model=aos.TransportAssignmentResponse)
+async def admin_patch_transport_assignment(
+    request: Request,
+    assignment_id: UUID,
+    body: aos.AdminTransportAssignmentUpdate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAssignmentResponse:
+    fields = body.model_dump(exclude_unset=True)
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.update_transport_assignment(
+                session,
+                _ctx(principal),
+                assignment_id,
+                route_id=fields.get("route_id"),
+                stop_id=fields.get("stop_id"),
+                effective_from=fields.get("effective_from"),
+                effective_to=fields.get("effective_to"),
+                request_id=_request_id(request),
+            )
+    return aos.TransportAssignmentResponse.model_validate(row, from_attributes=True)
+
+
+@router.post("/transport-assignments/{assignment_id}/expire", response_model=aos.TransportAssignmentResponse)
+async def admin_expire_transport_assignment(
+    request: Request,
+    assignment_id: UUID,
+    body: aos.AdminTransportAssignmentExpire,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAssignmentResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.expire_transport_assignment(
+                session,
+                _ctx(principal),
+                assignment_id,
+                effective_to=body.effective_to,
+                request_id=_request_id(request),
+            )
+    return aos.TransportAssignmentResponse.model_validate(row, from_attributes=True)
+
+
+@router.post("/transport-assignments/{assignment_id}/cancel", response_model=aos.TransportAssignmentResponse)
+async def admin_cancel_transport_assignment(
+    request: Request,
+    assignment_id: UUID,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAssignmentResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.cancel_transport_assignment(
+                session,
+                _ctx(principal),
+                assignment_id,
+                request_id=_request_id(request),
+            )
+    return aos.TransportAssignmentResponse.model_validate(row, from_attributes=True)
+
+
+@router.get("/transport-attendants", response_model=aos.TransportAttendantListResponse)
+async def admin_list_transport_attendants(
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = None,
+) -> aos.TransportAttendantListResponse:
+    if cursor:
+        try:
+            decode_cursor(cursor)
+        except ValueError as exc:
+            raise ValidationFailed(str(exc)) from exc
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            rows, next_cursor = await transport_svc.list_transport_attendants(
+                session,
+                _ctx(principal),
+                status=None,
+                limit=limit,
+                cursor=cursor,
+            )
+    return aos.TransportAttendantListResponse(
+        items=[aos.TransportAttendantResponse.model_validate(r, from_attributes=True) for r in rows],
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/transport-attendants/{attendant_id}", response_model=aos.TransportAttendantResponse)
+async def admin_get_transport_attendant(
+    attendant_id: UUID,
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAttendantResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.get_transport_attendant(session, _ctx(principal), attendant_id)
+    return aos.TransportAttendantResponse.model_validate(row, from_attributes=True)
+
+
+@router.post("/transport-attendants", response_model=aos.TransportAttendantResponse)
+async def admin_create_transport_attendant(
+    request: Request,
+    body: aos.AdminTransportAttendantCreate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAttendantResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.create_transport_attendant(
+                session,
+                _ctx(principal),
+                user_id=body.user_id,
+                employee_code=body.employee_code,
+                request_id=_request_id(request),
+            )
+    return aos.TransportAttendantResponse.model_validate(row, from_attributes=True)
+
+
+@router.patch("/transport-attendants/{attendant_id}", response_model=aos.TransportAttendantResponse)
+async def admin_patch_transport_attendant(
+    request: Request,
+    attendant_id: UUID,
+    body: aos.AdminTransportAttendantUpdate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.TransportAttendantResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.update_transport_attendant(
+                session,
+                _ctx(principal),
+                attendant_id,
+                employee_code=body.employee_code,
+                request_id=_request_id(request),
+            )
+    return aos.TransportAttendantResponse.model_validate(row, from_attributes=True)
+
+
+@router.post("/routes", response_model=aos.RouteResponse)
+async def admin_create_route(
+    request: Request,
+    body: aos.AdminRouteCreate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.RouteResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.create_route(
+                session,
+                _ctx(principal),
+                name=body.name,
+                code=body.code,
+                direction=body.direction,
+                request_id=_request_id(request),
+            )
+    return aos.RouteResponse.model_validate(row, from_attributes=True)
+
+
+@router.patch("/routes/{route_id}", response_model=aos.RouteResponse)
+async def admin_update_route(
+    request: Request,
+    route_id: UUID,
+    body: aos.AdminRouteUpdate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.RouteResponse:
+    fields = body.model_dump(exclude_unset=True)
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.update_route(
+                session,
+                _ctx(principal),
+                route_id,
+                name=fields.get("name"),
+                code=fields.get("code"),
+                direction=fields.get("direction"),
+                request_id=_request_id(request),
+            )
+    return aos.RouteResponse.model_validate(row, from_attributes=True)
+
+
+@router.get("/routes", response_model=aos.RouteListResponse)
+async def admin_list_routes(
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    status: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = None,
+) -> aos.RouteListResponse:
+    if cursor:
+        try:
+            decode_cursor(cursor)
+        except ValueError as exc:
+            raise ValidationFailed(str(exc)) from exc
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            rows, next_cursor = await transport_svc.list_routes(
+                session,
+                _ctx(principal),
+                status=status,
+                direction=None,
+                search=None,
+                limit=limit,
+                cursor=cursor,
+            )
+    return aos.RouteListResponse(
+        items=[aos.RouteResponse.model_validate(r, from_attributes=True) for r in rows],
+        next_cursor=next_cursor,
+    )
+
+
+@router.post("/routes/{route_id}/stops", response_model=aos.RouteStopResponse)
+async def admin_add_route_stop(
+    request: Request,
+    route_id: UUID,
+    body: aos.AdminRouteStopCreate,
+    principal: Annotated[Principal, Depends(require("operations:write"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.RouteStopResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            row = await transport_svc.add_route_stop(
+                session,
+                _ctx(principal),
+                route_id,
+                name=body.name,
+                sequence=body.sequence,
+                latitude=body.latitude,
+                longitude=body.longitude,
+                geofence_radius_meters=body.geofence_radius_meters,
+                request_id=_request_id(request),
+            )
+    return aos.RouteStopResponse.model_validate(row, from_attributes=True)
+
+
+@router.get("/routes/{route_id}/stops", response_model=aos.RouteStopListResponse)
+async def admin_list_route_stops(
+    route_id: UUID,
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+) -> aos.RouteStopListResponse:
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            rows = await transport_svc.list_route_stops(session, _ctx(principal), route_id)
+    return aos.RouteStopListResponse(
+        items=[aos.RouteStopResponse.model_validate(r, from_attributes=True) for r in rows],
+    )
+
+
+@router.get("/boarding-records", response_model=aos.TransportBoardingRecordListResponse)
+async def admin_list_boarding_records(
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    trip_id: UUID | None = None,
+    student_id: UUID | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = None,
+) -> aos.TransportBoardingRecordListResponse:
+    if cursor:
+        try:
+            decode_cursor(cursor)
+        except ValueError as exc:
+            raise ValidationFailed(str(exc)) from exc
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            rows, next_cursor = await transport_svc.list_boarding_records(
+                session,
+                _ctx(principal),
+                trip_id=trip_id,
+                student_id=student_id,
+                limit=limit,
+                cursor=cursor,
+            )
+    return aos.TransportBoardingRecordListResponse(
+        items=[aos.TransportBoardingRecordResponse.model_validate(r, from_attributes=True) for r in rows],
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/location-samples", response_model=aos.LocationSampleListResponse)
+async def admin_list_location_samples(
+    principal: Annotated[Principal, Depends(require("operations:read"))],
+    factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    trip_id: UUID | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = None,
+) -> aos.LocationSampleListResponse:
+    if cursor:
+        try:
+            decode_cursor(cursor)
+        except ValueError as exc:
+            raise ValidationFailed(str(exc)) from exc
+    async with factory() as session:
+        async with session.begin():
+            await apply_tenant_context(session, _ctx(principal))
+            rows, next_cursor = await transport_svc.list_location_samples(
+                session,
+                _ctx(principal),
+                trip_id=trip_id,
+                limit=limit,
+                cursor=cursor,
+            )
+    return aos.LocationSampleListResponse(
+        items=[aos.LocationSampleResponse.model_validate(r, from_attributes=True) for r in rows],
         next_cursor=next_cursor,
     )

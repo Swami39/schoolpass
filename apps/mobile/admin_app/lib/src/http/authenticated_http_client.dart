@@ -3,6 +3,16 @@ import 'package:http/http.dart' as http;
 import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
 
+class MultipartFilePayload {
+  const MultipartFilePayload({
+    required this.filename,
+    required this.bytes,
+  });
+
+  final String filename;
+  final List<int> bytes;
+}
+
 class AuthenticatedHttpResponse {
   const AuthenticatedHttpResponse({required this.statusCode, required this.body});
 
@@ -44,6 +54,58 @@ class AuthenticatedHttpClient {
 
   Future<AuthenticatedHttpResponse> patchJsonPath(String path, {required String body}) {
     return _request(method: 'PATCH', path: path, body: body);
+  }
+
+  Future<AuthenticatedHttpResponse> postMultipartPath(
+    String path, {
+    required Map<String, String> fields,
+    required Map<String, MultipartFilePayload> files,
+  }) async {
+    final uri = _resolve(path);
+    var access = await _auth.accessToken();
+    if (access == null || access.isEmpty) {
+      return const AuthenticatedHttpResponse(statusCode: 401, body: '');
+    }
+    var response = await _multipart(uri, access, fields: fields, files: files);
+    if (response.statusCode != 401) {
+      return response;
+    }
+    try {
+      final tokens = await _auth.refreshTokens();
+      response = await _multipart(uri, tokens.accessToken, fields: fields, files: files);
+    } on AuthFailure {
+      return const AuthenticatedHttpResponse(statusCode: 401, body: '');
+    } on AuthNetworkFailure {
+      return response;
+    }
+    return response;
+  }
+
+  Future<AuthenticatedHttpResponse> _multipart(
+    Uri uri,
+    String accessToken, {
+    required Map<String, String> fields,
+    required Map<String, MultipartFilePayload> files,
+  }) async {
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['authorization'] = 'Bearer $accessToken';
+    request.fields.addAll(fields);
+    for (final entry in files.entries) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          entry.key,
+          entry.value.bytes,
+          filename: entry.value.filename,
+        ),
+      );
+    }
+    try {
+      final streamed = await _client.send(request);
+      final body = await streamed.stream.bytesToString();
+      return AuthenticatedHttpResponse(statusCode: streamed.statusCode, body: body);
+    } catch (_) {
+      throw AuthNetworkFailure();
+    }
   }
 
   Future<AuthenticatedHttpResponse> _request({
