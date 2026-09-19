@@ -74,6 +74,11 @@ PERMISSIONS: dict[str, str] = {
     "transport_attendants:write": "Manage transport attendants",
     "trips:read": "Read transport trips",
     "trips:write": "Manage transport trips",
+    "transport_nfc:sync": "Submit transport NFC client events",
+    "transport_boarding:read": "Read transport boarding records",
+    "gps_samples:sync": "Submit transport GPS location samples",
+    "gps_samples:read": "Read transport GPS location history",
+    "parent:gps_read": "Read current bus location for linked children",
 }
 
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -160,6 +165,10 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "transport_attendants:write",
         "trips:read",
         "trips:write",
+        "transport_nfc:sync",
+        "transport_boarding:read",
+        "gps_samples:sync",
+        "gps_samples:read",
     ),
     "school_finance": (
         "tenant:read",
@@ -197,8 +206,17 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "transport_assignments:read",
         "trips:read",
         "trips:write",
+        "transport_nfc:sync",
+        "transport_boarding:read",
+        "gps_samples:sync",
     ),
-    "parent": ("tenant:read", "students:read", "guardians:read", "enrollments:read"),
+    "parent": (
+        "tenant:read",
+        "students:read",
+        "guardians:read",
+        "enrollments:read",
+        "parent:gps_read",
+    ),
 }
 
 PLATFORM_ROLES = {"platform_super_admin", "platform_support", "platform_billing"}

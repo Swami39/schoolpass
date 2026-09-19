@@ -121,6 +121,7 @@ class Guardian(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     last_name: Mapped[str] = mapped_column(String(128), nullable=False)
     phone_e164: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(CITEXT, nullable=True)
+    user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
 
     __table_args__ = (
