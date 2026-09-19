@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +12,15 @@ from schoolpass.auth.crypto import decrypt_secret, encrypt_secret
 from schoolpass.config import Settings
 from schoolpass.db.mixins import utcnow
 from schoolpass.errors import ConflictError, NotFoundError, ValidationFailed
-from schoolpass.rfid.models import RfidDevice, RfidDeviceKey, RfidReader
+from schoolpass.people.pagination import decode_cursor, encode_cursor
+from schoolpass.rfid.models import (
+    RfidDevice,
+    RfidDeviceKey,
+    RfidEvent,
+    RfidEventProcessing,
+    RfidObservation,
+    RfidReader,
+)
 from schoolpass.rfid.security import generate_device_secret
 from schoolpass.tenancy.context import TenantContext
 
@@ -281,6 +289,48 @@ async def rotate_device_key(
         metadata={"key_version": new_version},
     )
     return device, secret
+
+
+MAX_EVENT_PAGE = 200
+
+
+async def list_events(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    reader_id: UUID | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[tuple[RfidEvent, RfidEventProcessing | None, RfidObservation | None]], str | None]:
+    tenant_id = _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_EVENT_PAGE)
+    stmt = (
+        select(RfidEvent, RfidEventProcessing, RfidObservation)
+        .outerjoin(RfidEventProcessing, RfidEventProcessing.rfid_event_id == RfidEvent.id)
+        .outerjoin(RfidObservation, RfidObservation.rfid_event_id == RfidEvent.id)
+        .where(RfidEvent.tenant_id == tenant_id)
+        .order_by(RfidEvent.occurred_at.desc(), RfidEvent.id.desc())
+    )
+    if reader_id is not None:
+        stmt = stmt.where(RfidEvent.reader_id == reader_id)
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                RfidEvent.created_at < created_at,
+                and_(RfidEvent.created_at == created_at, RfidEvent.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    raw_rows = list((await session.execute(stmt)).all())
+    next_cursor = None
+    if len(raw_rows) > limit:
+        last_event = raw_rows[limit - 1][0]
+        next_cursor = encode_cursor(created_at=last_event.created_at, row_id=last_event.id)
+        raw_rows = raw_rows[:limit]
+    rows = [(event, proc, obs) for event, proc, obs in raw_rows]
+    return rows, next_cursor
 
 
 async def load_device_secret(

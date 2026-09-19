@@ -268,3 +268,24 @@ class LocationSampleResponse(BaseModel):
 
 class LocationSampleListResponse(BaseModel):
     items: list[LocationSampleResponse]
+    next_cursor: str | None = None
+
+
+class TransportBoardingRecordResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    trip_id: UUID
+    bus_id: UUID
+    attendant_id: UUID
+    student_id: UUID
+    transport_assignment_id: UUID
+    event_type: str
+    source: str
+    occurred_at: datetime
+    received_at: datetime
+    status: str
+
+
+class TransportBoardingRecordListResponse(BaseModel):
+    items: list[TransportBoardingRecordResponse]
+    next_cursor: str | None = None

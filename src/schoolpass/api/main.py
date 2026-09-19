@@ -14,6 +14,11 @@ from starlette.responses import Response
 from schoolpass.adapters.blob import LocalBlobStore
 from schoolpass.adapters.redis import RedisCache
 from schoolpass.adapters.service_bus import AzureServiceBus, LocalRedisBus
+from schoolpass.api.routes.admin import router as admin_router
+from schoolpass.api.routes.admin_academic import router as admin_academic_router
+from schoolpass.api.routes.admin_imports import router as admin_imports_router
+from schoolpass.api.routes.admin_operations import router as admin_operations_router
+from schoolpass.api.routes.admin_people import router as admin_people_router
 from schoolpass.api.routes.attendance import router as attendance_router
 from schoolpass.api.routes.auth import router as auth_router
 from schoolpass.api.routes.cards import router as cards_router
@@ -120,6 +125,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(parent_notifications_router)
     app.include_router(teacher_router)
     app.include_router(teacher_notifications_router)
+    app.include_router(admin_router)
+    app.include_router(admin_academic_router)
+    app.include_router(admin_people_router)
+    app.include_router(admin_operations_router)
+    app.include_router(admin_imports_router)
     return app
 
 
