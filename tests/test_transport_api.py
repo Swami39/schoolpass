@@ -381,3 +381,121 @@ async def test_retired_bus_rejected_for_trip(
 async def test_unauthenticated_returns_401(client: AsyncClient) -> None:
     response = await client.get("/api/v1/buses")
     assert response.status_code == 401
+
+
+async def test_parent_cannot_list_buses(
+    client: AsyncClient,
+    db_factory,
+    student_world: dict,
+    settings: Settings,
+) -> None:
+    token = await _role_token(db_factory, student_world, settings, "parent")
+    response = await client.get("/api/v1/buses", headers=auth_headers(token))
+    assert response.status_code == 403
+
+
+async def test_bus_attendant_cannot_retire_bus(
+    client: AsyncClient,
+    db_factory,
+    student_world: dict,
+    settings: Settings,
+) -> None:
+    headers = auth_headers(student_world["token_a"])
+    bus = (
+        await client.post(
+            "/api/v1/buses",
+            json={
+                "registration_number": f"KA-{uuid4().hex[:6]}",
+                "display_name": "Retire Test",
+                "capacity": 30,
+            },
+            headers=headers,
+        )
+    ).json()
+    token = await _role_token(db_factory, student_world, settings, "bus_attendant")
+    response = await client.post(
+        f"/api/v1/buses/{bus['id']}/retire",
+        headers=auth_headers(token),
+    )
+    assert response.status_code == 403
+
+
+async def test_create_bus_uses_jwt_tenant_not_body_tenant_id(
+    client: AsyncClient,
+    student_world: dict,
+) -> None:
+    headers = auth_headers(student_world["token_a"])
+    response = await client.post(
+        "/api/v1/buses",
+        json={
+            "registration_number": f"KA-{uuid4().hex[:6]}",
+            "display_name": "Tenant Scope Bus",
+            "capacity": 30,
+            "tenant_id": str(student_world["tenant_b"]),
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["tenant_id"] == str(student_world["tenant_a"])
+
+
+async def test_reorder_rejects_stop_from_other_route(client: AsyncClient, student_world: dict) -> None:
+    headers = auth_headers(student_world["token_a"])
+    route_a = (
+        await client.post(
+            "/api/v1/routes",
+            json={"name": "Route A", "code": f"A-{uuid4().hex[:4]}", "direction": "pickup"},
+            headers=headers,
+        )
+    ).json()
+    route_b = (
+        await client.post(
+            "/api/v1/routes",
+            json={"name": "Route B", "code": f"B-{uuid4().hex[:4]}", "direction": "pickup"},
+            headers=headers,
+        )
+    ).json()
+    await client.post(
+        f"/api/v1/routes/{route_a['id']}/stops",
+        json={"name": "A1", "sequence": 1, "latitude": "12.97", "longitude": "77.59"},
+        headers=headers,
+    )
+    stop_b = (
+        await client.post(
+            f"/api/v1/routes/{route_b['id']}/stops",
+            json={"name": "B1", "sequence": 1, "latitude": "12.98", "longitude": "77.60"},
+            headers=headers,
+        )
+    ).json()
+    response = await client.post(
+        f"/api/v1/routes/{route_a['id']}/stops/reorder",
+        json={"stop_ids": [stop_b["id"]]},
+        headers=headers,
+    )
+    assert response.status_code == 422
+
+
+async def test_cross_tenant_cannot_start_trip(
+    client: AsyncClient,
+    student_world: dict,
+    db_factory,
+    settings: Settings,
+) -> None:
+    stack = await _full_stack(client, student_world, db_factory, settings)
+    trip = (
+        await client.post(
+            "/api/v1/trips",
+            json={
+                "bus_id": stack["bus"]["id"],
+                "route_id": stack["route"]["id"],
+                "attendant_id": stack["attendant"]["id"],
+                "service_date": stack["service_date"],
+                "shift": "pickup",
+            },
+            headers=stack["headers"],
+        )
+    ).json()
+    headers_b = auth_headers(student_world["token_b"])
+    response = await client.post(f"/api/v1/trips/{trip['id']}/start", headers=headers_b)
+    assert response.status_code == 404
+
