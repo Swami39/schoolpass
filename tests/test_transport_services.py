@@ -608,5 +608,36 @@ async def test_concurrent_trip_start(student_world, settings) -> None:
 
     results = await asyncio.gather(start_once(), start_once(), return_exceptions=True)
     await engine.dispose()
-    assert sum(1 for r in results if not isinstance(r, Exception)) == 1
-    assert sum(1 for r in results if isinstance(r, Exception)) == 1
+    assert all(not isinstance(r, Exception) for r in results)
+
+    async with factory() as session:
+        async with session.begin():
+            ctx = await _ctx(student_world)
+            await apply_tenant_context(session, ctx)
+            from sqlalchemy import func, select
+
+            from schoolpass.identity.models import AuditLog, OutboxEvent
+
+            trip_id = trip_id_holder["id"]
+            outbox_count = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(OutboxEvent)
+                    .where(
+                        OutboxEvent.topic == "trip.started",
+                        OutboxEvent.payload["trip_id"].astext == str(trip_id),
+                    )
+                )
+            ).scalar_one()
+            audit_count = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(
+                        AuditLog.action == "trip.started",
+                        AuditLog.resource_id == trip_id,
+                    )
+                )
+            ).scalar_one()
+            assert outbox_count == 1
+            assert audit_count == 1

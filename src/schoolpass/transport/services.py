@@ -1171,6 +1171,25 @@ async def activate_transport_attendant(
     return row
 
 
+async def _lock_attendant_for_trip(
+    session: AsyncSession,
+    tenant_id: UUID,
+    attendant_id: UUID,
+) -> TransportAttendant:
+    result = await session.execute(
+        select(TransportAttendant)
+        .where(
+            TransportAttendant.id == attendant_id,
+            TransportAttendant.tenant_id == tenant_id,
+        )
+        .with_for_update()
+    )
+    attendant = result.scalar_one_or_none()
+    if attendant is None:
+        raise NotFoundError()
+    return attendant
+
+
 async def _lock_bus_for_trip(session: AsyncSession, tenant_id: UUID, bus_id: UUID) -> Bus:
     result = await session.execute(
         select(Bus).where(Bus.id == bus_id, Bus.tenant_id == tenant_id).with_for_update()
@@ -1223,7 +1242,7 @@ async def create_trip(
     route = await get_route(session, ctx, route_id)
     if route.status != ROUTE_OPERATIONAL_STATUS:
         raise ValidationFailed("Route is not active")
-    attendant = await _get_attendant(session, ctx, attendant_id)
+    attendant = await _lock_attendant_for_trip(session, tenant_id, attendant_id)
     if attendant.status != ATTENDANT_OPERATIONAL_STATUS:
         raise ValidationFailed("Attendant is not active")
     await _assert_no_conflicting_trips(
@@ -1258,22 +1277,25 @@ async def create_trip(
         status="scheduled",
     )
     session.add(trip)
-    await session.flush()
-    now = utcnow()
-    for stop in stops:
-        session.add(
-            TripStop(
-                tenant_id=tenant_id,
-                trip_id=trip.id,
-                route_stop_id=stop.id,
-                sequence=stop.sequence,
-                name=stop.name,
-                latitude=stop.latitude,
-                longitude=stop.longitude,
-                created_at=now,
+    try:
+        await session.flush()
+        now = utcnow()
+        for stop in stops:
+            session.add(
+                TripStop(
+                    tenant_id=tenant_id,
+                    trip_id=trip.id,
+                    route_stop_id=stop.id,
+                    sequence=stop.sequence,
+                    name=stop.name,
+                    latitude=stop.latitude,
+                    longitude=stop.longitude,
+                    created_at=now,
+                )
             )
-        )
-    await session.flush()
+        await session.flush()
+    except IntegrityError as exc:
+        raise ConflictError("Conflicting active trip for bus or attendant") from exc
     await _audit(
         session,
         ctx,
@@ -1322,6 +1344,8 @@ async def start_trip(
     request_id: str | None = None,
 ) -> Trip:
     trip = await _get_trip_for_update(session, ctx, trip_id)
+    if trip.status == "boarding":
+        return trip
     try:
         assert_trip_status_transition(trip.status, "boarding")
     except ValueError as exc:
@@ -1358,6 +1382,8 @@ async def begin_trip_in_progress(
     request_id: str | None = None,
 ) -> Trip:
     trip = await _get_trip_for_update(session, ctx, trip_id)
+    if trip.status == "in_progress":
+        return trip
     try:
         assert_trip_status_transition(trip.status, "in_progress")
     except ValueError as exc:
@@ -1396,6 +1422,8 @@ async def complete_trip(
     request_id: str | None = None,
 ) -> Trip:
     trip = await _get_trip_for_update(session, ctx, trip_id)
+    if trip.status == "completed":
+        return trip
     try:
         assert_trip_status_transition(trip.status, "completed")
     except ValueError as exc:
@@ -1436,6 +1464,8 @@ async def cancel_trip(
     request_id: str | None = None,
 ) -> Trip:
     trip = await _get_trip_for_update(session, ctx, trip_id)
+    if trip.status == "cancelled":
+        return trip
     try:
         assert_trip_status_transition(trip.status, "cancelled")
     except ValueError as exc:
