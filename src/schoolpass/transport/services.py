@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from schoolpass.errors import ConflictError, NotFoundError, ValidationFailed
 from schoolpass.identity.models import StaffProfile
 from schoolpass.outbox.service import enqueue_outbox
 from schoolpass.people.models import Student
+from schoolpass.people.pagination import decode_cursor, encode_cursor
 from schoolpass.tenancy.context import TenantContext
 from schoolpass.transport.lifecycle import (
     ACTIVE_TRIP_STATUSES,
@@ -37,6 +38,8 @@ from schoolpass.transport.models import (
     Trip,
     TripStop,
 )
+
+MAX_PAGE_SIZE = 200
 
 
 async def _audit(
@@ -1459,3 +1462,243 @@ async def cancel_trip(
         request_id=request_id,
     )
     return trip
+
+
+async def get_trip(session: AsyncSession, ctx: TenantContext, trip_id: UUID) -> Trip:
+    row = await session.get(Trip, trip_id)
+    if row is None:
+        raise NotFoundError()
+    return row
+
+
+async def get_transport_attendant(
+    session: AsyncSession,
+    ctx: TenantContext,
+    attendant_id: UUID,
+) -> TransportAttendant:
+    return await _get_attendant(session, ctx, attendant_id)
+
+
+async def list_buses(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    status: str | None,
+    search: str | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[Bus], str | None]:
+    _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(Bus).order_by(Bus.created_at.desc(), Bus.id.desc())
+    if status:
+        stmt = stmt.where(Bus.status == status)
+    if search:
+        pattern = f"%{search.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Bus.registration_number.ilike(pattern),
+                Bus.display_name.ilike(pattern),
+                Bus.fleet_number.ilike(pattern),
+            )
+        )
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                Bus.created_at < created_at,
+                and_(Bus.created_at == created_at, Bus.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+async def list_routes(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    status: str | None,
+    direction: str | None,
+    search: str | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[Route], str | None]:
+    _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(Route).order_by(Route.created_at.desc(), Route.id.desc())
+    if status:
+        stmt = stmt.where(Route.status == status)
+    if direction:
+        stmt = stmt.where(Route.direction == direction)
+    if search:
+        pattern = f"%{search.strip()}%"
+        stmt = stmt.where(or_(Route.name.ilike(pattern), Route.code.ilike(pattern)))
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                Route.created_at < created_at,
+                and_(Route.created_at == created_at, Route.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+async def list_route_stops(
+    session: AsyncSession,
+    ctx: TenantContext,
+    route_id: UUID,
+) -> list[RouteStop]:
+    await get_route(session, ctx, route_id)
+    result = await session.execute(
+        select(RouteStop).where(RouteStop.route_id == route_id).order_by(RouteStop.sequence.asc())
+    )
+    return list(result.scalars())
+
+
+async def list_transport_assignments(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    student_id: UUID | None,
+    route_id: UUID | None,
+    status: str | None,
+    effective_on: date | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[TransportAssignment], str | None]:
+    _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(TransportAssignment).order_by(
+        TransportAssignment.effective_from.desc(),
+        TransportAssignment.id.desc(),
+    )
+    if student_id:
+        stmt = stmt.where(TransportAssignment.student_id == student_id)
+    if route_id:
+        stmt = stmt.where(TransportAssignment.route_id == route_id)
+    if status:
+        stmt = stmt.where(TransportAssignment.status == status)
+    if effective_on:
+        stmt = stmt.where(
+            TransportAssignment.effective_from <= effective_on,
+            or_(
+                TransportAssignment.effective_to.is_(None),
+                TransportAssignment.effective_to >= effective_on,
+            ),
+        )
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                TransportAssignment.created_at < created_at,
+                and_(TransportAssignment.created_at == created_at, TransportAssignment.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+async def list_transport_attendants(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    status: str | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[TransportAttendant], str | None]:
+    _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(TransportAttendant).order_by(
+        TransportAttendant.created_at.desc(),
+        TransportAttendant.id.desc(),
+    )
+    if status:
+        stmt = stmt.where(TransportAttendant.status == status)
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                TransportAttendant.created_at < created_at,
+                and_(TransportAttendant.created_at == created_at, TransportAttendant.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+async def list_trips(
+    session: AsyncSession,
+    ctx: TenantContext,
+    *,
+    service_date: date | None,
+    bus_id: UUID | None,
+    route_id: UUID | None,
+    attendant_id: UUID | None,
+    status: str | None,
+    shift: str | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[Trip], str | None]:
+    _require_tenant(ctx)
+    limit = min(max(limit, 1), MAX_PAGE_SIZE)
+    stmt = select(Trip).order_by(Trip.service_date.desc(), Trip.created_at.desc(), Trip.id.desc())
+    if service_date:
+        stmt = stmt.where(Trip.service_date == service_date)
+    if bus_id:
+        stmt = stmt.where(Trip.bus_id == bus_id)
+    if route_id:
+        stmt = stmt.where(Trip.route_id == route_id)
+    if attendant_id:
+        stmt = stmt.where(Trip.attendant_id == attendant_id)
+    if status:
+        stmt = stmt.where(Trip.status == status)
+    if shift:
+        stmt = stmt.where(Trip.shift == shift)
+    decoded = decode_cursor(cursor) if cursor else None
+    if decoded:
+        created_at, row_id = decoded
+        stmt = stmt.where(
+            or_(
+                Trip.created_at < created_at,
+                and_(Trip.created_at == created_at, Trip.id < row_id),
+            )
+        )
+    stmt = stmt.limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(created_at=last.created_at, row_id=last.id)
+        rows = rows[:limit]
+    return rows, next_cursor
