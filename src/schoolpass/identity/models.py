@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,12 +16,28 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "tenants"
 
     legal_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata", nullable=False)
     country: Mapped[str] = mapped_column(String(2), default="IN", nullable=False)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    address_line1: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    logo_file_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     data_residency: Mapped[str] = mapped_column(String(32), default="in", nullable=False)
     db_binding: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["logo_file_id", "id"],
+            ["files.id", "files.tenant_id"],
+            name="fk_tenants_logo_file_tenant",
+        ),
+    )
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):

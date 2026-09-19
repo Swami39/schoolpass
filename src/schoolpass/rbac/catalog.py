@@ -11,6 +11,7 @@ SYSTEM_ROLES = (
 
 PERMISSIONS: dict[str, str] = {
     "tenant:read": "Read tenant profile",
+    "tenant:write": "Update tenant/school profile",
     "staff:read": "Read staff profiles",
     "staff:write": "Write staff profiles",
     "audit:read": "Read audit logs",
@@ -119,6 +120,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "platform_billing": ("tenant:read",),
     "school_admin": (
         "tenant:read",
+        "tenant:write",
         "staff:read",
         "staff:write",
         "audit:read",
