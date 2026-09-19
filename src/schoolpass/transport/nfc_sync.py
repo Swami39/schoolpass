@@ -14,6 +14,7 @@ from schoolpass.cards.normalize import normalize_hf_uid
 from schoolpass.db.mixins import utcnow
 from schoolpass.errors import AuthenticationError, NotFoundError, ValidationFailed
 from schoolpass.identity.models import ClientDevice
+from schoolpass.notifications.producers import emit_transport_boarding_notifications
 from schoolpass.outbox.service import enqueue_outbox
 from schoolpass.rfid.resolution import (
     RESOLUTION_BLOCKED,
@@ -511,6 +512,12 @@ async def sync_transport_nfc_event(
             "event_type": event_type,
             "client_event_id": str(event.id),
         },
+    )
+    await emit_transport_boarding_notifications(
+        session,
+        tenant_id=tenant_id,
+        boarding=boarding,
+        correlation_id=request_id,
     )
     return NfcSyncResult(
         category=SyncResultCategory.PROCESSED,

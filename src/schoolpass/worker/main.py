@@ -8,9 +8,18 @@ from sqlalchemy import select
 from schoolpass.adapters.redis import RedisCache
 from schoolpass.adapters.service_bus import AzureServiceBus, LocalRedisBus
 from schoolpass.attendance.worker import process_attendance_batch
-from schoolpass.config import get_settings
+from schoolpass.config import get_settings, Settings
 from schoolpass.db.session import apply_tenant_context, create_engine, session_factory
 from schoolpass.identity.models import OutboxEvent
+from schoolpass.notifications.constants import NOTIFICATION_TOPIC_DISPATCH
+from schoolpass.notifications.delivery import NotificationDeliveryService
+from schoolpass.notifications.dispatch_worker import process_notification_dispatch_message
+from schoolpass.notifications.fcm import (
+    DisabledFcmTransport,
+    FcmHttpV1Provider,
+    MemoryFcmCredentials,
+    RecordingFcmTransport,
+)
 from schoolpass.observability.logging import configure_logging, get_logger
 from schoolpass.tenancy.context import TenantContext
 
@@ -77,14 +86,64 @@ async def publish_outbox_batch() -> int:
     return published
 
 
+def _build_delivery_service(settings: Settings) -> NotificationDeliveryService:
+    transport: RecordingFcmTransport | DisabledFcmTransport
+    if settings.app_env == "test":
+        transport = RecordingFcmTransport()
+    else:
+        transport = DisabledFcmTransport()
+    fcm = FcmHttpV1Provider(
+        project_id=settings.fcm_project_id,
+        credentials=MemoryFcmCredentials(),
+        transport=transport,
+    )
+    return NotificationDeliveryService(fcm=fcm)
+
+
+async def process_notification_dispatch_batch() -> int:
+    settings = get_settings()
+    engine = create_engine(settings.database_url, null_pool=settings.app_env == "test")
+    factory = session_factory(engine)
+    redis = RedisCache(settings.redis_url)
+    bus = LocalRedisBus(redis)
+    delivery = _build_delivery_service(settings)
+    processed = 0
+    try:
+        messages = await bus.consume_batch(NOTIFICATION_TOPIC_DISPATCH, limit=25)
+        if not messages:
+            return 0
+        async with factory() as session:
+            async with session.begin():
+                await apply_tenant_context(
+                    session, TenantContext(actor_type="system", tenant_id=None, user_id=None)
+                )
+                for message in messages:
+                    await process_notification_dispatch_message(
+                        session,
+                        message={
+                            "id": message.get("message_id"),
+                            "tenant_id": message.get("tenant_id"),
+                            "schema_version": message.get("schema_version"),
+                            "payload": message.get("payload"),
+                        },
+                        delivery=delivery,
+                    )
+                    processed += 1
+    finally:
+        await redis.close()
+        await engine.dispose()
+    return processed
+
+
 async def run() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
     log.info("worker_started", env=settings.app_env)
     while True:
         outbox = await publish_outbox_batch()
+        notifications = await process_notification_dispatch_batch()
         attendance = await process_attendance_batch()
-        await asyncio.sleep(1 if outbox or attendance else 5)
+        await asyncio.sleep(1 if outbox or notifications or attendance else 5)
 
 
 def main() -> None:
