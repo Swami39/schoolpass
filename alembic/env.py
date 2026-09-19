@@ -6,10 +6,11 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
 
+from schoolpass.cards import models as _card_models  # noqa: F401
 from schoolpass.db.session import Base
 from schoolpass.identity import models as _models  # noqa: F401
 from schoolpass.people import models as _people_models  # noqa: F401
-from schoolpass.cards import models as _card_models  # noqa: F401
+from schoolpass.transport import models as _transport_models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
