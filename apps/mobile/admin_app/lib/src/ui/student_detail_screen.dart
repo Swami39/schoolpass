@@ -5,6 +5,7 @@ import '../app/admin_dependencies.dart';
 import '../operations/operations_models.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'guardian_form_screen.dart';
 import 'student_form_screen.dart';
 
 class StudentDetailScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
   StudentDetail? _student;
   List<EnrollmentDetail> _enrollments = const [];
   List<StudentGuardianLink> _guardianLinks = const [];
+  Map<String, GuardianDetail> _guardianById = const {};
   List<CardAssignmentItem> _cardAssignments = const [];
   List<GuardianDetail> _allGuardians = const [];
   bool _loading = true;
@@ -41,6 +43,13 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       _student = await widget.deps.peopleApi.fetchStudent(widget.studentId);
       _enrollments = await widget.deps.peopleApi.fetchStudentEnrollments(widget.studentId);
       _guardianLinks = await widget.deps.peopleApi.fetchStudentGuardians(widget.studentId);
+      final resolved = <String, GuardianDetail>{};
+      for (final link in _guardianLinks) {
+        try {
+          resolved[link.guardianId] = await widget.deps.peopleApi.fetchGuardian(link.guardianId);
+        } catch (_) {}
+      }
+      _guardianById = resolved;
       _cardAssignments = await widget.deps.operationsApi.fetchStudentCardAssignments(widget.studentId);
     } on AdminPeopleUnauthorized {
       _error = 'Session expired.';
@@ -63,6 +72,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 
   Future<void> _addEnrollment() async {
     final years = await widget.deps.academicApi.fetchAcademicYears();
+    final guardians = await widget.deps.peopleApi.fetchGuardians();
     if (years.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No academic years configured.')));
@@ -72,6 +82,9 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
     AcademicYearItem? year = years.first;
     SchoolClassItem? clazz;
     SectionItem? section;
+    GuardianDetail? guardian;
+    var linkGuardian = true;
+    final relationshipCtrl = TextEditingController(text: 'parent');
     if (!mounted) return;
     await showDialog<void>(
       context: context,
@@ -83,19 +96,24 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButton<AcademicYearItem>(
-                    value: year,
-                    items: years.map((y) => DropdownMenuItem(value: y, child: Text(y.name))).toList(),
+                  DropdownButtonFormField<AcademicYearItem>(
+                    initialValue: year,
+                    decoration: const InputDecoration(labelText: 'Academic year'),
+                    items: years
+                        .map((y) => DropdownMenuItem(value: y, child: Text('${y.name} (${y.id})')))
+                        .toList(),
                     onChanged: (v) => setLocal(() => year = v),
                   ),
                   FutureBuilder<List<SchoolClassItem>>(
                     future: widget.deps.academicApi.fetchClasses(),
                     builder: (context, snap) {
                       final classes = snap.data ?? const [];
-                      return DropdownButton<SchoolClassItem>(
-                        hint: const Text('Class'),
-                        value: clazz,
-                        items: classes.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                      return DropdownButtonFormField<SchoolClassItem>(
+                        initialValue: clazz,
+                        decoration: const InputDecoration(labelText: 'Class'),
+                        items: classes
+                            .map((c) => DropdownMenuItem(value: c, child: Text('${c.name} (${c.id})')))
+                            .toList(),
                         onChanged: (v) => setLocal(() {
                           clazz = v;
                           section = null;
@@ -108,14 +126,41 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                       future: widget.deps.academicApi.fetchSections(classId: clazz!.id),
                       builder: (context, snap) {
                         final sections = snap.data ?? const [];
-                        return DropdownButton<SectionItem>(
-                          hint: const Text('Section'),
-                          value: section,
-                          items: sections.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
+                        return DropdownButtonFormField<SectionItem>(
+                          initialValue: section,
+                          decoration: const InputDecoration(labelText: 'Section'),
+                          items: sections
+                              .map((s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.id})')))
+                              .toList(),
                           onChanged: (v) => setLocal(() => section = v),
                         );
                       },
                     ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Also link parent/guardian'),
+                    value: linkGuardian,
+                    onChanged: (v) => setLocal(() => linkGuardian = v),
+                  ),
+                  if (linkGuardian) ...[
+                    DropdownButtonFormField<GuardianDetail>(
+                      initialValue: guardian,
+                      decoration: const InputDecoration(labelText: 'Guardian'),
+                      items: guardians
+                          .map(
+                            (g) => DropdownMenuItem(
+                              value: g,
+                              child: Text('${g.displayName} (${g.id})'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setLocal(() => guardian = v),
+                    ),
+                    TextField(
+                      controller: relationshipCtrl,
+                      decoration: const InputDecoration(labelText: 'Relationship'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -124,6 +169,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
               FilledButton(
                 onPressed: () async {
                   if (year == null || clazz == null || section == null) return;
+                  if (linkGuardian && guardian == null) return;
                   try {
                     await widget.deps.peopleApi.createEnrollment({
                       'student_id': widget.studentId,
@@ -132,6 +178,15 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                       'section_id': section!.id,
                       'starts_on': DateTime.now().toIso8601String().split('T').first,
                     });
+                    if (linkGuardian && guardian != null) {
+                      await widget.deps.peopleApi.attachStudentGuardian(widget.studentId, {
+                        'guardian_id': guardian!.id,
+                        'relationship_type': relationshipCtrl.text.trim().isEmpty
+                            ? 'parent'
+                            : relationshipCtrl.text.trim(),
+                        'is_primary_contact': true,
+                      });
+                    }
                     if (context.mounted) Navigator.pop(context);
                     _load();
                   } on AdminPeopleApiFailure catch (e) {
@@ -147,6 +202,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
         },
       ),
     );
+    relationshipCtrl.dispose();
   }
 
   Future<void> _moveEnrollment(EnrollmentDetail enrollment) async {
@@ -273,6 +329,27 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
     relationshipCtrl.dispose();
   }
 
+  Future<void> _createParent() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => GuardianFormScreen(deps: widget.deps)),
+    );
+    if (created == true && mounted) {
+      final guardians = await widget.deps.peopleApi.fetchGuardians();
+      if (guardians.isEmpty) return;
+      final newest = guardians.first;
+      try {
+        await widget.deps.peopleApi.attachStudentGuardian(widget.studentId, {
+          'guardian_id': newest.id,
+          'relationship_type': 'parent',
+          'is_primary_contact': _guardianLinks.isEmpty,
+        });
+        _load();
+      } on AdminPeopleApiFailure catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -302,6 +379,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                     children: [
                       Text(_student!.displayName, style: Theme.of(context).textTheme.headlineSmall),
                       Text('Admission: ${_student!.admissionNo}'),
+                      Text('Student ID: ${_student!.id}'),
                       Text('Status: ${_student!.status}'),
                       const SizedBox(height: 16),
                       Row(
@@ -316,8 +394,14 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                       else
                         ..._enrollments.map(
                           (e) => ListTile(
-                            title: Text('${e.status} — class ${e.classId.substring(0, 8)}…'),
-                            subtitle: Text('Section ${e.sectionId.substring(0, 8)}… • ${e.startsOn}'),
+                            title: Text('${e.status} — started ${e.startsOn}'),
+                            subtitle: Text(
+                              'Enrollment ID: ${e.id}\n'
+                              'Class ID: ${e.classId}\n'
+                              'Section ID: ${e.sectionId}\n'
+                              'Year ID: ${e.academicYearId}',
+                            ),
+                            isThreeLine: true,
                             trailing: e.status == 'active'
                                 ? PopupMenuButton<String>(
                                     onSelected: (v) {
@@ -339,8 +423,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                       else
                         ..._cardAssignments.map(
                           (a) => ListTile(
-                            title: Text('Card ${a.physicalCardId.substring(0, 8)}…'),
-                            subtitle: Text(a.status),
+                            title: Text('Card ${a.physicalCardId}'),
+                            subtitle: Text('Assignment ID: ${a.id} • ${a.status}'),
                           ),
                         ),
                       const SizedBox(height: 16),
@@ -348,19 +432,29 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                         children: [
                           Text('Guardians', style: Theme.of(context).textTheme.titleMedium),
                           const Spacer(),
-                          TextButton(onPressed: _linkGuardian, child: const Text('Link')),
+                          TextButton(onPressed: _linkGuardian, child: const Text('Link existing')),
+                          TextButton(onPressed: _createParent, child: const Text('New parent')),
                         ],
                       ),
                       if (_guardianLinks.isEmpty)
                         const Text('No guardians linked')
                       else
                         ..._guardianLinks.map(
-                          (g) => ListTile(
-                            title: Text(g.relationshipType),
-                            subtitle: Text(
-                              'Guardian ${g.guardianId.substring(0, 8)}… • ${g.isPrimaryContact ? 'primary' : 'secondary'}',
-                            ),
-                          ),
+                          (g) {
+                            final parent = _guardianById[g.guardianId];
+                            return ListTile(
+                              title: Text(parent?.displayName ?? 'Parent'),
+                              subtitle: Text(
+                                [
+                                  g.relationshipType,
+                                  if (parent?.email != null) parent!.email!,
+                                  if (g.isPrimaryContact) 'primary contact',
+                                  if (parent?.userId != null) 'Parent app login linked',
+                                  if (parent?.userId == null) 'No parent-app login yet',
+                                ].join(' · '),
+                              ),
+                            );
+                          },
                         ),
                     ],
                   ),

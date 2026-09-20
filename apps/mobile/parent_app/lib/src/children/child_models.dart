@@ -24,7 +24,7 @@ class ParentChild {
 
   factory ParentChild.fromJson(Map<String, dynamic> json) {
     return ParentChild(
-      id: json['id'] as String,
+      id: (json['id'] ?? json['student_id']) as String,
       firstName: json['first_name'] as String,
       middleName: json['middle_name'] as String?,
       lastName: json['last_name'] as String,

@@ -37,6 +37,7 @@ class AdminGuardianCreate(BaseModel):
     last_name: str = Field(min_length=1, max_length=128)
     phone_e164: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=255)
+    create_parent_login: bool = True
 
 
 class AdminGuardianUpdate(BaseModel):

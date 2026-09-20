@@ -14,6 +14,7 @@ class PeopleListScreen<T> extends StatefulWidget {
     this.onTap,
     this.filterOptions,
     this.onCreate,
+    this.useScaffold = true,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class PeopleListScreen<T> extends StatefulWidget {
   final void Function(T item)? onTap;
   final List<String>? filterOptions;
   final VoidCallback? onCreate;
+  final bool useScaffold;
 
   @override
   State<PeopleListScreen<T>> createState() => _PeopleListScreenState<T>();
@@ -68,78 +70,89 @@ class _PeopleListScreenState<T> extends State<PeopleListScreen<T>> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          if (widget.filterOptions != null && widget.filterOptions!.isNotEmpty)
-            DropdownButton<String>(
-              value: _filter,
-              hint: const Text('Filter'),
-              items: widget.filterOptions!
-                  .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                  .toList(),
-              onChanged: (v) {
-                setState(() => _filter = v);
-                _load();
-              },
-            ),
-        ],
-      ),
-      floatingActionButton: widget.onCreate == null
-          ? null
-          : FloatingActionButton(onPressed: widget.onCreate, child: const Icon(Icons.add)),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Search',
-                      suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _load),
-                    ),
-                    onSubmitted: (_) => _load(),
+    final content = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Search',
+                    suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _load),
                   ),
+                  onSubmitted: (_) => _load(),
                 ),
-              ],
-            ),
+              ),
+              if (widget.filterOptions != null && widget.filterOptions!.isNotEmpty)
+                DropdownButton<String>(
+                  value: _filter,
+                  hint: const Text('Filter'),
+                  items: widget.filterOptions!
+                      .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                      .toList(),
+                  onChanged: (v) {
+                    setState(() => _filter = v);
+                    _load();
+                  },
+                ),
+            ],
           ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_error!, textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            FilledButton(onPressed: _load, child: const Text('Retry')),
-                          ],
-                        ),
-                      )
-                    : _items.isEmpty
-                        ? const Center(child: Text('No records found.'))
-                        : RefreshIndicator(
-                            onRefresh: _load,
-                            child: ListView.builder(
-                              itemCount: _items.length,
-                              itemBuilder: (context, index) {
-                                final item = _items[index];
-                                return ListTile(
-                                  title: Text(widget.label(item)),
-                                  onTap: widget.onTap == null ? null : () => widget.onTap!(item),
-                                );
-                              },
-                            ),
+        ),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          FilledButton(onPressed: _load, child: const Text('Retry')),
+                        ],
+                      ),
+                    )
+                  : _items.isEmpty
+                      ? const Center(child: Text('No records found.'))
+                      : RefreshIndicator(
+                          onRefresh: _load,
+                          child: ListView.builder(
+                            itemCount: _items.length,
+                            itemBuilder: (context, index) {
+                              final item = _items[index];
+                              return ListTile(
+                                title: Text(widget.label(item)),
+                                onTap: widget.onTap == null ? null : () => widget.onTap!(item),
+                              );
+                            },
                           ),
-          ),
+                        ),
+        ),
+      ],
+    );
+    final fab = widget.onCreate == null
+        ? null
+        : FloatingActionButton(onPressed: widget.onCreate, child: const Icon(Icons.add));
+    if (!widget.useScaffold) {
+      return Stack(
+        children: [
+          content,
+          if (fab != null)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: fab,
+            ),
         ],
-      ),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      floatingActionButton: fab,
+      body: content,
     );
   }
 }

@@ -11,11 +11,19 @@ class AttendanceApi {
   Future<List<AttendanceRecordItem>> fetchAttendance({
     required String studentId,
     String? onDate,
+    String? fromDate,
+    String? toDate,
     int limit = 30,
   }) async {
     final query = <String, String>{'limit': '$limit'};
     if (onDate != null) {
       query['date'] = onDate;
+    }
+    if (fromDate != null) {
+      query['from_date'] = fromDate;
+    }
+    if (toDate != null) {
+      query['to_date'] = toDate;
     }
     final queryString = query.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
     final path = '/api/v1/parent/children/$studentId/attendance?$queryString';

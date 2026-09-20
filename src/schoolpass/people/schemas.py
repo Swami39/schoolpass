@@ -66,6 +66,7 @@ class GuardianResponse(BaseModel):
     last_name: str
     phone_e164: str | None
     email: str | None
+    user_id: UUID | None = None
     status: str
     created_at: datetime
     updated_at: datetime

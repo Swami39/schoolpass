@@ -55,12 +55,13 @@ class AuthenticatedHttpClient implements ParentBusLocationHttpTransport {
   }
 
   Uri _resolve(String path) {
-    final normalized = path.startsWith('/') ? path.substring(1) : path;
+    final parsed = Uri.parse(path);
+    final normalized = parsed.path.startsWith('/') ? parsed.path.substring(1) : parsed.path;
     final segments = [
       ..._apiOrigin.pathSegments.where((s) => s.isNotEmpty),
       ...normalized.split('/').where((s) => s.isNotEmpty),
     ];
-    return _apiOrigin.replace(pathSegments: segments, query: '');
+    return _apiOrigin.replace(pathSegments: segments, query: parsed.query);
   }
 
   Future<AuthenticatedHttpResponse> _send({

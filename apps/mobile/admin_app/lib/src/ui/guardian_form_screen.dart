@@ -82,7 +82,11 @@ class _GuardianFormScreenState extends State<GuardianFormScreen> {
           TextField(controller: _firstCtrl, decoration: const InputDecoration(labelText: 'First name')),
           TextField(controller: _lastCtrl, decoration: const InputDecoration(labelText: 'Last name')),
           TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone (E.164)')),
-          TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
+          TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email (Parent app login)')),
+          const SizedBox(height: 8),
+          const Text(
+            'Saving with an email creates a parent login. First-time password is the school directory password.',
+          ),
           if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           const SizedBox(height: 16),
           FilledButton(

@@ -18,6 +18,7 @@ class _FakeAuthApi extends AuthApi {
   Future<AuthTokens> passwordLogin({
     required String identifier,
     required String password,
+    String? tenantId,
   }) async {
     return const AuthTokens(accessToken: 'access', refreshToken: 'refresh');
   }

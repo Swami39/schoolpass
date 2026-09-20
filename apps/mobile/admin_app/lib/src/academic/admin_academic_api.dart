@@ -15,7 +15,8 @@ class AdminAcademicApi {
 
   final AuthenticatedHttpClient _http;
 
-  Future<List<AcademicYearItem>> fetchAcademicYears() => _list('api/v1/admin/academic-years', AcademicYearItem.fromJson);
+  Future<List<AcademicYearItem>> fetchAcademicYears() =>
+      _list('api/v1/admin/academic-years', AcademicYearItem.fromJson);
 
   Future<List<SchoolClassItem>> fetchClasses() => _list('api/v1/admin/classes', SchoolClassItem.fromJson);
 
@@ -28,6 +29,21 @@ class AdminAcademicApi {
 
   Future<List<TeacherAssignmentItem>> fetchTeacherAssignments() =>
       _list('api/v1/admin/teacher-assignments', TeacherAssignmentItem.fromJson);
+
+  Future<AcademicYearItem> createAcademicYear(Map<String, dynamic> body) =>
+      _mutate('api/v1/admin/academic-years', body, AcademicYearItem.fromJson);
+
+  Future<SchoolClassItem> createClass(Map<String, dynamic> body) =>
+      _mutate('api/v1/admin/classes', body, SchoolClassItem.fromJson);
+
+  Future<SectionItem> createSection(Map<String, dynamic> body) =>
+      _mutate('api/v1/admin/sections', body, SectionItem.fromJson);
+
+  Future<SubjectItem> createSubject(Map<String, dynamic> body) =>
+      _mutate('api/v1/admin/subjects', body, SubjectItem.fromJson);
+
+  Future<TeacherAssignmentItem> createTeacherAssignment(Map<String, dynamic> body) =>
+      _mutate('api/v1/admin/teacher-assignments', body, TeacherAssignmentItem.fromJson);
 
   Future<List<T>> _list<T>(String path, T Function(Map<String, dynamic>) map) async {
     final response = await _http.getJsonPath(path);
@@ -43,5 +59,28 @@ class AdminAcademicApi {
         .whereType<Map<String, dynamic>>()
         .map(map)
         .toList(growable: false);
+  }
+
+  Future<T> _mutate<T>(
+    String path,
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic>) map,
+  ) async {
+    final response = await _http.postJsonPath(path, body: jsonEncode(body));
+    if (response.statusCode == 401) throw AdminAcademicUnauthorized();
+    if (response.statusCode == 403) {
+      throw AdminAcademicApiFailure('You do not have permission for this action');
+    }
+    if (response.statusCode == 422) {
+      throw AdminAcademicApiFailure('Invalid input (${response.body})');
+    }
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AdminAcademicApiFailure('Request failed (${response.statusCode})');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw AdminAcademicApiFailure('Malformed response');
+    }
+    return map(decoded);
   }
 }

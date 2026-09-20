@@ -40,4 +40,29 @@ void main() {
     expect(protectedCalls, 2);
     expect(await store.readAccessToken(), 'fresh');
   });
+
+  test('preserves query string on relative API paths', () async {
+    final store = InMemoryTokenStore();
+    await store.writeTokens(accessToken: 'access', refreshToken: 'refresh-1');
+    Uri? seen;
+    final mock = MockClient((request) async {
+      seen = request.url;
+      return http.Response(jsonEncode({'items': []}), 200);
+    });
+    final client = AuthenticatedHttpClient(
+      authRepository: AuthRepository(
+        api: AuthApi(apiOrigin: Uri.parse('https://api.example.invalid'), client: mock),
+        tokenStore: store,
+      ),
+      apiOrigin: Uri.parse('https://api.example.invalid'),
+      client: mock,
+    );
+    await client.getJsonPath(
+      '/api/v1/parent/children/22222222-2222-4222-8222-222222222222/attendance?from_date=2026-09-01&limit=30',
+    );
+    expect(seen, isNotNull);
+    expect(seen!.path, '/api/v1/parent/children/22222222-2222-4222-8222-222222222222/attendance');
+    expect(seen!.queryParameters['from_date'], '2026-09-01');
+    expect(seen!.queryParameters['limit'], '30');
+  });
 }

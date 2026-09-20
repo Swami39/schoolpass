@@ -37,7 +37,11 @@ class AuthorizationError(AppError):
 
 class ValidationFailed(AppError):
     def __init__(self, message: str, code: str = "validation_error") -> None:
-        super().__init__(code, message, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        super().__init__(
+            code,
+            message,
+            getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", status.HTTP_422_UNPROCESSABLE_ENTITY),
+        )
 
 
 class NotFoundError(AppError):
@@ -100,7 +104,7 @@ async def http_error_handler(request: Request, exc: HTTPException) -> JSONRespon
 
 async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", status.HTTP_422_UNPROCESSABLE_ENTITY),
         content=error_body("validation_error", "Request validation failed", _request_id(request)),
     )
 

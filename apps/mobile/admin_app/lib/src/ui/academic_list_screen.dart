@@ -9,6 +9,8 @@ class AcademicListScreen<T> extends StatefulWidget {
     required this.deps,
     required this.loader,
     required this.label,
+    this.onCreate,
+    this.subtitle,
     super.key,
   });
 
@@ -16,6 +18,8 @@ class AcademicListScreen<T> extends StatefulWidget {
   final AdminDependencies deps;
   final Future<List<T>> Function() loader;
   final String Function(T item) label;
+  final String Function(T item)? subtitle;
+  final Future<void> Function()? onCreate;
 
   @override
   State<AcademicListScreen<T>> createState() => _AcademicListScreenState<T>();
@@ -52,10 +56,33 @@ class _AcademicListScreenState<T> extends State<AcademicListScreen<T>> {
     }
   }
 
+  Future<void> _create() async {
+    final create = widget.onCreate;
+    if (create == null) return;
+    await create();
+    if (mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          if (widget.onCreate != null)
+            IconButton(
+              onPressed: _create,
+              icon: const Icon(Icons.add),
+              tooltip: 'Create',
+            ),
+        ],
+      ),
+      floatingActionButton: widget.onCreate == null
+          ? null
+          : FloatingActionButton(
+              onPressed: _create,
+              child: const Icon(Icons.add),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -70,14 +97,28 @@ class _AcademicListScreenState<T> extends State<AcademicListScreen<T>> {
                   ),
                 )
               : _items.isEmpty
-                  ? const Center(child: Text('No records yet.'))
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('No records yet.'),
+                          if (widget.onCreate != null) ...[
+                            const SizedBox(height: 12),
+                            FilledButton(onPressed: _create, child: const Text('Create')),
+                          ],
+                        ],
+                      ),
+                    )
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView.builder(
                         itemCount: _items.length,
                         itemBuilder: (context, index) {
                           final item = _items[index];
-                          return ListTile(title: Text(widget.label(item)));
+                          return ListTile(
+                            title: Text(widget.label(item)),
+                            subtitle: widget.subtitle == null ? null : Text(widget.subtitle!(item)),
+                          );
                         },
                       ),
                     ),

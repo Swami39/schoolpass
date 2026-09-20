@@ -11,6 +11,7 @@ import '../session/token_store.dart';
 class AdminDependencies {
   AdminDependencies({
     required this.apiOrigin,
+    this.tenantId,
     required this.tokenStore,
     required this.authApi,
     required this.authRepository,
@@ -18,16 +19,19 @@ class AdminDependencies {
   });
 
   factory AdminDependencies.production({TokenStore? tokenStore}) {
-    const origin = String.fromEnvironment('SCHOOLPASS_API_ORIGIN', defaultValue: 'http://localhost:8000');
+    const origin = String.fromEnvironment('SCHOOLPASS_API_ORIGIN', defaultValue: 'http://127.0.0.1:8000');
+    const tenantId = String.fromEnvironment('SCHOOLPASS_TENANT_ID', defaultValue: '');
     final apiOrigin = Uri.parse(origin);
     return AdminDependencies.create(
       apiOrigin: apiOrigin,
+      tenantId: tenantId.isEmpty ? null : tenantId,
       tokenStore: tokenStore ?? InMemoryTokenStore(),
     );
   }
 
   factory AdminDependencies.create({
     required Uri apiOrigin,
+    String? tenantId,
     required TokenStore tokenStore,
     AuthApi? authApi,
     AuthRepository? authRepository,
@@ -43,6 +47,7 @@ class AdminDependencies {
         );
     return AdminDependencies(
       apiOrigin: apiOrigin,
+      tenantId: tenantId,
       tokenStore: tokenStore,
       authApi: resolvedAuthApi,
       authRepository: resolvedAuthRepository,
@@ -51,6 +56,7 @@ class AdminDependencies {
   }
 
   final Uri apiOrigin;
+  final String? tenantId;
   final TokenStore tokenStore;
   final AuthApi authApi;
   final AuthRepository authRepository;
