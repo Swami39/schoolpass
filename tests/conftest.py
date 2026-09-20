@@ -48,6 +48,7 @@ def jwt_keys() -> tuple[str, str]:
 def settings(jwt_keys: tuple[str, str]) -> Settings:
     private_pem, public_pem = jwt_keys
     get_settings.cache_clear()
+    os.environ["DIRECTORY_BOOTSTRAP_PASSWORD"] = "Test-Directory-Only-2026"
     return Settings(
         app_env="test",
         otp_dev_allow=True,
@@ -63,6 +64,7 @@ def settings(jwt_keys: tuple[str, str]) -> Settings:
         jwt_private_key_pem=private_pem,
         jwt_public_key_pem=public_pem,
         secret_app_key="test-secret-key-not-production",
+        directory_bootstrap_password="Test-Directory-Only-2026",
     )
 
 
@@ -77,6 +79,7 @@ def migrate(settings: Settings) -> None:
     os.environ["OTP_DEV_ALLOW"] = "true"
     os.environ["JWT_PRIVATE_KEY_PEM"] = settings.jwt_private_key_pem
     os.environ["JWT_PUBLIC_KEY_PEM"] = settings.jwt_public_key_pem
+    os.environ["DIRECTORY_BOOTSTRAP_PASSWORD"] = settings.directory_bootstrap_password
     get_settings.cache_clear()
     cfg = Config("alembic.ini")
     command.upgrade(cfg, "head")

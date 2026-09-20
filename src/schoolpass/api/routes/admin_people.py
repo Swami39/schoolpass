@@ -243,6 +243,7 @@ async def create_guardian(
                 phone_e164=body.phone_e164,
                 email=body.email,
                 request_id=_request_id(request),
+                create_parent_login=body.create_parent_login,
             )
     return ap.GuardianResponse.model_validate(row, from_attributes=True)
 

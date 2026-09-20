@@ -79,6 +79,7 @@ class GuardianDetail {
     required this.status,
     this.phoneE164,
     this.email,
+    this.userId,
   });
 
   final String id;
@@ -87,6 +88,7 @@ class GuardianDetail {
   final String status;
   final String? phoneE164;
   final String? email;
+  final String? userId;
 
   String get displayName => '$firstName $lastName';
 
@@ -97,6 +99,7 @@ class GuardianDetail {
         status: json['status'] as String,
         phoneE164: json['phone_e164'] as String?,
         email: json['email'] as String?,
+        userId: json['user_id'] as String?,
       );
 }
 

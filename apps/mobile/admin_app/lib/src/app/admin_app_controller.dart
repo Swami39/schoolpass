@@ -33,6 +33,7 @@ class AdminAppController extends ChangeNotifier {
   bool savingProfile = false;
   String? errorMessage;
   String? successMessage;
+  String? pendingMfaToken;
 
   Future<void> bootstrap() async {
     final session = await deps.authRepository.loadPersistedSession();
@@ -47,17 +48,54 @@ class AdminAppController extends ChangeNotifier {
 
   Future<void> login(String identifier, String password) async {
     errorMessage = null;
+    pendingMfaToken = null;
     try {
-      await deps.authRepository.login(identifier: identifier, password: password);
+      await deps.authRepository.login(
+        identifier: identifier,
+        password: password,
+        tenantId: deps.tenantId,
+      );
       phase = AdminAppPhase.signedIn;
       section = AdminSection.dashboard;
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
-    } on AuthMfaRequired {
-      errorMessage = 'Multi-factor authentication is required for this account.';
+    } on AuthMfaRequired catch (e) {
+      pendingMfaToken = e.mfaToken;
+      errorMessage = null;
     } on AuthFailure catch (e) {
       errorMessage = e.message;
     }
+    notifyListeners();
+  }
+
+  Future<void> submitMfa(String code) async {
+    final token = pendingMfaToken;
+    if (token == null || token.isEmpty) {
+      errorMessage = 'No MFA challenge in progress.';
+      notifyListeners();
+      return;
+    }
+    errorMessage = null;
+    try {
+      await deps.authRepository.completeMfa(
+        mfaToken: token,
+        code: code.trim(),
+        tenantId: deps.tenantId,
+      );
+      pendingMfaToken = null;
+      phase = AdminAppPhase.signedIn;
+      section = AdminSection.dashboard;
+    } on AuthNetworkFailure {
+      errorMessage = 'Network error. Check your connection and try again.';
+    } on AuthFailure catch (e) {
+      errorMessage = e.message;
+    }
+    notifyListeners();
+  }
+
+  void cancelMfa() {
+    pendingMfaToken = null;
+    errorMessage = null;
     notifyListeners();
   }
 
@@ -74,9 +112,7 @@ class AdminAppController extends ChangeNotifier {
     successMessage = null;
     errorMessage = null;
     notifyListeners();
-    if (value == AdminSection.school && schoolProfile == null && !loadingProfile) {
-      loadSchoolProfile();
-    }
+    // SchoolProfileScreen loads the profile after the frame; do not notify again mid-build.
   }
 
   Future<void> loadSchoolProfile() async {

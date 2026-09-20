@@ -27,8 +27,30 @@ class AuthRepository {
   Future<AuthSession> login({
     required String identifier,
     required String password,
+    String? tenantId,
   }) async {
-    final tokens = await _api.passwordLogin(identifier: identifier, password: password);
+    final tokens = await _api.passwordLogin(
+      identifier: identifier,
+      password: password,
+      tenantId: tenantId,
+    );
+    try {
+      await _tokenStore.writeTokens(
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      );
+    } on TokenStorageException {
+      throw AuthFailure('could not persist session');
+    }
+    return AuthSession(tokens: tokens);
+  }
+
+  Future<AuthSession> completeMfa({
+    required String mfaToken,
+    required String code,
+    String? tenantId,
+  }) async {
+    final tokens = await _api.verifyMfa(mfaToken: mfaToken, code: code, tenantId: tenantId);
     try {
       await _tokenStore.writeTokens(
         accessToken: tokens.accessToken,

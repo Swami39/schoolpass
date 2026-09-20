@@ -17,6 +17,27 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _submitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    const email = String.fromEnvironment('SCHOOLPASS_DEBUG_EMAIL');
+    const password = String.fromEnvironment('SCHOOLPASS_DEBUG_PASSWORD');
+    if (email.isNotEmpty) {
+      _identifier.text = email;
+    }
+    if (password.isNotEmpty) {
+      _password.text = password;
+    }
+    const autoSignIn = bool.fromEnvironment('SCHOOLPASS_DEBUG_AUTOSIGNIN');
+    if (autoSignIn && email.isNotEmpty && password.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_submitting) {
+          _submit();
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _identifier.dispose();
     _password.dispose();
@@ -36,11 +57,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final error = widget.controller.errorMessage;
     return Scaffold(
       appBar: AppBar(title: const Text('SchoolPass Parent')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             TextField(
               controller: _identifier,
               decoration: const InputDecoration(labelText: 'Email or phone'),
@@ -71,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   : const Text('Sign in'),
             ),
           ],
+          ),
         ),
       ),
     );

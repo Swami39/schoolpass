@@ -27,7 +27,10 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
   @override
   void initState() {
     super.initState();
-    widget.controller.loadSchoolProfile();
+    // Defer so notifyListeners does not run while the parent AnimatedBuilder is building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.controller.loadSchoolProfile();
+    });
   }
 
   @override

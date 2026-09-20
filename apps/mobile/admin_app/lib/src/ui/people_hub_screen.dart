@@ -15,6 +15,60 @@ class PeopleHubScreen extends StatelessWidget {
 
   final AdminDependencies deps;
 
+  static Widget staffList(BuildContext context, AdminDependencies deps, {bool useScaffold = true}) {
+    return PeopleListScreen<StaffListItem>(
+      title: 'Staff',
+      deps: deps,
+      useScaffold: useScaffold,
+      loader: ({search, filter}) => deps.peopleApi.fetchStaff(search: search, staffType: filter),
+      filterOptions: const ['teacher', 'office', 'finance', 'attendant', 'bus_attendant'],
+      label: (item) => '${item.staffType} — ${item.email ?? item.employeeCode ?? item.id}',
+      onTap: (item) => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => StaffDetailScreen(deps: deps, staffId: item.id)),
+      ),
+      onCreate: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => StaffFormScreen(deps: deps)),
+      ),
+    );
+  }
+
+  static Widget studentsList(BuildContext context, AdminDependencies deps, {bool useScaffold = true}) {
+    return PeopleListScreen<StudentDetail>(
+      title: 'Students',
+      deps: deps,
+      useScaffold: useScaffold,
+      loader: ({search, filter}) => deps.peopleApi.fetchStudents(search: search, status: filter),
+      filterOptions: const ['active', 'withdrawn'],
+      label: (item) => '${item.displayName} (${item.admissionNo}) — ${item.status}',
+      onTap: (item) => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => StudentDetailScreen(deps: deps, studentId: item.id)),
+      ),
+      onCreate: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => StudentFormScreen(deps: deps)),
+        );
+      },
+    );
+  }
+
+  static Widget guardiansList(BuildContext context, AdminDependencies deps, {bool useScaffold = true}) {
+    return PeopleListScreen<GuardianDetail>(
+      title: 'Guardians',
+      deps: deps,
+      useScaffold: useScaffold,
+      loader: ({search, filter}) => deps.peopleApi.fetchGuardians(),
+      label: (item) => '${item.displayName} — ${item.status}',
+      onTap: (item) => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => GuardianDetailScreen(deps: deps, guardianId: item.id)),
+      ),
+      onCreate: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => GuardianFormScreen(deps: deps)),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -24,66 +78,21 @@ class PeopleHubScreen extends StatelessWidget {
           leading: const Icon(Icons.badge),
           title: const Text('Staff'),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PeopleListScreen<StaffListItem>(
-                title: 'Staff',
-                deps: deps,
-                loader: ({search, filter}) => deps.peopleApi.fetchStaff(search: search, staffType: filter),
-                filterOptions: const ['teacher', 'office', 'finance', 'attendant', 'bus_attendant'],
-                label: (item) => '${item.staffType} — ${item.email ?? item.employeeCode ?? item.id}',
-                onTap: (item) => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => StaffDetailScreen(deps: deps, staffId: item.id)),
-                ),
-                onCreate: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => StaffFormScreen(deps: deps)),
-                ),
-              ),
-            ),
+            MaterialPageRoute(builder: (_) => staffList(context, deps)),
           ),
         ),
         ListTile(
           leading: const Icon(Icons.school),
           title: const Text('Students'),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PeopleListScreen<StudentDetail>(
-                title: 'Students',
-                deps: deps,
-                loader: ({search, filter}) => deps.peopleApi.fetchStudents(search: search, status: filter),
-                filterOptions: const ['active', 'withdrawn'],
-                label: (item) => '${item.displayName} (${item.admissionNo}) — ${item.status}',
-                onTap: (item) => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => StudentDetailScreen(deps: deps, studentId: item.id)),
-                ),
-                onCreate: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => StudentFormScreen(deps: deps)),
-                  );
-                },
-              ),
-            ),
+            MaterialPageRoute(builder: (_) => studentsList(context, deps)),
           ),
         ),
         ListTile(
           leading: const Icon(Icons.family_restroom),
           title: const Text('Guardians'),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PeopleListScreen<GuardianDetail>(
-                title: 'Guardians',
-                deps: deps,
-                loader: ({search, filter}) => deps.peopleApi.fetchGuardians(),
-                label: (item) => '${item.displayName} — ${item.status}',
-                onTap: (item) => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => GuardianDetailScreen(deps: deps, guardianId: item.id)),
-                ),
-                onCreate: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => GuardianFormScreen(deps: deps)),
-                  );
-                },
-              ),
-            ),
+            MaterialPageRoute(builder: (_) => guardiansList(context, deps)),
           ),
         ),
       ],

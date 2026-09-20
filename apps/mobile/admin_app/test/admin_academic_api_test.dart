@@ -69,4 +69,44 @@ void main() {
     await deps.academicApi.fetchSections(classId: '22222222-2222-2222-2222-222222222222');
     expect(requestedPath, contains('class_id=22222222-2222-2222-2222-222222222222'));
   });
+
+  test('createClass posts body and parses response', () async {
+    http.Request? seen;
+    final client = MockClient((request) async {
+      seen = request;
+      return http.Response(
+        jsonEncode({
+          'id': '33333333-3333-3333-3333-333333333333',
+          'code': '11',
+          'name': 'Class 11',
+          'status': 'active',
+          'created_at': '2025-01-01T00:00:00Z',
+          'updated_at': '2025-01-01T00:00:00Z',
+        }),
+        200,
+      );
+    });
+    final store = InMemoryTokenStore();
+    await store.writeTokens(accessToken: 'access', refreshToken: 'refresh');
+    final auth = AuthApi(apiOrigin: Uri.parse('http://test'));
+    final deps = AdminDependencies.create(
+      apiOrigin: Uri.parse('http://test'),
+      tokenStore: store,
+      authRepository: AuthRepository(api: auth, tokenStore: store),
+      httpClient: AuthenticatedHttpClient(
+        authRepository: AuthRepository(api: auth, tokenStore: store),
+        apiOrigin: Uri.parse('http://test'),
+        client: client,
+      ),
+    );
+    final created = await deps.academicApi.createClass({
+      'code': '11',
+      'name': 'Class 11',
+      'status': 'active',
+    });
+    expect(seen!.method, 'POST');
+    expect(seen!.url.path, endsWith('/api/v1/admin/classes'));
+    expect(created.code, '11');
+    expect(created.id, '33333333-3333-3333-3333-333333333333');
+  });
 }

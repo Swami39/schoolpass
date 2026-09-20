@@ -15,11 +15,19 @@ class AuthApi {
   Future<AuthTokens> passwordLogin({
     required String identifier,
     required String password,
+    String? tenantId,
   }) async {
+    final payload = <String, dynamic>{
+      'identifier': identifier,
+      'password': password,
+    };
+    if (tenantId != null && tenantId.isNotEmpty) {
+      payload['tenant_id'] = tenantId;
+    }
     final response = await _client.post(
       _uri('api/v1/auth/password/login'),
       headers: {'content-type': 'application/json'},
-      body: jsonEncode({'identifier': identifier, 'password': password}),
+      body: jsonEncode(payload),
     );
     if (response.statusCode >= 500) {
       throw AuthNetworkFailure();
@@ -47,6 +55,35 @@ class AuthApi {
     }
     if (response.statusCode != 200) {
       throw AuthFailure('refresh failed');
+    }
+    return _parseTokenBody(response.body);
+  }
+
+  Future<AuthTokens> verifyMfa({
+    required String mfaToken,
+    required String code,
+    String? tenantId,
+  }) async {
+    final payload = <String, dynamic>{
+      'mfa_token': mfaToken,
+      'code': code,
+    };
+    if (tenantId != null && tenantId.isNotEmpty) {
+      payload['tenant_id'] = tenantId;
+    }
+    final response = await _client.post(
+      _uri('api/v1/auth/mfa/verify'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode >= 500) {
+      throw AuthNetworkFailure();
+    }
+    if (response.statusCode == 401) {
+      throw AuthFailure('invalid mfa code');
+    }
+    if (response.statusCode != 200) {
+      throw AuthFailure('mfa verification failed');
     }
     return _parseTokenBody(response.body);
   }

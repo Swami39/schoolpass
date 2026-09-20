@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
+import 'academic_form_screens.dart';
 import 'academic_list_screen.dart';
 
 class AcademicHubScreen extends StatelessWidget {
@@ -17,6 +18,7 @@ class AcademicHubScreen extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.calendar_month),
           title: const Text('Academic years'),
+          subtitle: const Text('Create and review school years'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<AcademicYearItem>(
@@ -24,6 +26,12 @@ class AcademicHubScreen extends StatelessWidget {
                 deps: deps,
                 loader: deps.academicApi.fetchAcademicYears,
                 label: (item) => '${item.name} (${item.code}) — ${item.status}',
+                subtitle: (item) => 'ID: ${item.id}',
+                onCreate: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => AcademicYearFormScreen(deps: deps)),
+                  );
+                },
               ),
             ),
           ),
@@ -31,6 +39,7 @@ class AcademicHubScreen extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.class_),
           title: const Text('Classes & sections'),
+          subtitle: const Text('Add classes (optionally with a first section)'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<SchoolClassItem>(
@@ -38,6 +47,33 @@ class AcademicHubScreen extends StatelessWidget {
                 deps: deps,
                 loader: deps.academicApi.fetchClasses,
                 label: (item) => '${item.name} (${item.code}) — ${item.status}',
+                subtitle: (item) => 'ID: ${item.id}',
+                onCreate: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => SchoolClassFormScreen(deps: deps)),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.grid_view),
+          title: const Text('Sections'),
+          subtitle: const Text('Add a section under an existing class'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AcademicListScreen<SectionItem>(
+                title: 'Sections',
+                deps: deps,
+                loader: deps.academicApi.fetchSections,
+                label: (item) => '${item.name} — ${item.status}',
+                subtitle: (item) => 'Section ID: ${item.id}\nClass ID: ${item.classId}',
+                onCreate: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => SectionFormScreen(deps: deps)),
+                  );
+                },
               ),
             ),
           ),
@@ -52,6 +88,12 @@ class AcademicHubScreen extends StatelessWidget {
                 deps: deps,
                 loader: deps.academicApi.fetchSubjects,
                 label: (item) => '${item.name} (${item.code}) — ${item.status}',
+                subtitle: (item) => 'ID: ${item.id}',
+                onCreate: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => SubjectFormScreen(deps: deps)),
+                  );
+                },
               ),
             ),
           ),
@@ -59,13 +101,21 @@ class AcademicHubScreen extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.person_pin),
           title: const Text('Teacher assignments'),
+          subtitle: const Text('Link a teacher to a class section'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<TeacherAssignmentItem>(
                 title: 'Teacher assignments',
                 deps: deps,
                 loader: deps.academicApi.fetchTeacherAssignments,
-                label: (item) => '${item.assignmentRole} — section ${item.sectionId.substring(0, 8)}…',
+                label: (item) => '${item.assignmentRole} — ${item.status}',
+                subtitle: (item) =>
+                    'ID: ${item.id}\nTeacher user: ${item.teacherUserId}\nSection: ${item.sectionId}',
+                onCreate: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => TeacherAssignmentFormScreen(deps: deps)),
+                  );
+                },
               ),
             ),
           ),

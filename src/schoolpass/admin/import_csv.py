@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from schoolpass.admin import staff as staff_admin
+from schoolpass.admin.import_roster import ROSTER_COLUMNS, ROSTER_REQUIRED, apply_roster_rows, validate_roster_rows
 from schoolpass.admin.import_schemas import ImportRowError, ImportValidateResponse
 from schoolpass.audit.service import record_audit
 from schoolpass.errors import ConflictError, ValidationFailed
@@ -54,6 +55,7 @@ IMPORT_TYPES: dict[str, frozenset[str]] = {
     "enrollments": frozenset(
         {"admission_no", "academic_year_code", "class_code", "section_name", "starts_on"},
     ),
+    "school_roster": frozenset(ROSTER_COLUMNS),
 }
 
 REQUIRED_COLUMNS: dict[str, frozenset[str]] = {
@@ -64,13 +66,14 @@ REQUIRED_COLUMNS: dict[str, frozenset[str]] = {
     "enrollments": frozenset(
         {"admission_no", "academic_year_code", "class_code", "section_name", "starts_on"},
     ),
+    "school_roster": ROSTER_REQUIRED,
 }
 
 
 def template_for(import_type: str) -> tuple[list[str], str]:
     if import_type not in IMPORT_TYPES:
         raise ValidationFailed("Unknown import type")
-    columns = sorted(IMPORT_TYPES[import_type])
+    columns = list(ROSTER_COLUMNS) if import_type == "school_roster" else sorted(IMPORT_TYPES[import_type])
     return columns, ",".join(columns)
 
 
@@ -378,6 +381,8 @@ async def validate_import(
         valid = await _validate_student_guardians(session, ctx, rows, errors)
     elif import_type == "staff":
         valid = await _validate_staff(session, ctx, rows, errors)
+    elif import_type == "school_roster":
+        valid = await validate_roster_rows(session, ctx, rows, errors)
     else:
         valid = await _validate_enrollments(session, ctx, rows, errors)
     return ImportValidateResponse(
@@ -482,6 +487,14 @@ async def apply_import(
                 or False,
                 request_id=request_id,
             )
+            if guardian.email:
+                from schoolpass.admin.directory import ensure_user_with_role
+
+                user = await ensure_user_with_role(
+                    session, ctx, email=guardian.email, role_name="parent", phone_e164=guardian.phone_e164
+                )
+                if guardian.user_id != user.id:
+                    guardian.user_id = user.id
             applied += 1
     elif import_type == "staff":
         for row in rows:
@@ -506,6 +519,8 @@ async def apply_import(
                 request_id=request_id,
             )
             applied += 1
+    elif import_type == "school_roster":
+        applied, skipped = await apply_roster_rows(session, ctx, rows, request_id=request_id)
     else:
         for row in rows:
             student = await _resolve_student(session, tenant_id, row["admission_no"])

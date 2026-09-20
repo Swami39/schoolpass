@@ -31,11 +31,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _error = null;
     });
     try {
-      final today = DateTime.now().toIso8601String().split('T').first;
+      final today = DateTime.now();
+      final from = today.subtract(const Duration(days: 30));
       final items = await widget.controller.deps.attendanceApi.fetchAttendance(
         studentId: widget.studentId,
-        onDate: today,
-        limit: 14,
+        fromDate: from.toIso8601String().split('T').first,
+        toDate: today.toIso8601String().split('T').first,
+        limit: 30,
       );
       if (!mounted) return;
       setState(() {
@@ -45,7 +47,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } on AttendanceUnauthorized {
       if (!mounted) return;
       setState(() {
-        _error = 'You do not have access to this child.';
+        _error = 'Could not load attendance for this child.';
         _items = [];
         _loading = false;
       });
@@ -70,7 +72,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  if (_items.isEmpty && _error == null) const Text('No attendance records for today.'),
+                  if (_items.isEmpty && _error == null) const Text('No attendance records in the last 30 days.'),
                   for (final item in _items) ...[
                     Text(item.attendanceDate, style: Theme.of(context).textTheme.titleMedium),
                     ListTile(

@@ -328,6 +328,7 @@ async def create_guardian(
     phone_e164: str | None,
     email: str | None,
     request_id: str | None,
+    create_parent_login: bool = True,
 ) -> Guardian:
     if ctx.tenant_id is None:
         raise ValidationFailed("Tenant context is required")
@@ -340,6 +341,18 @@ async def create_guardian(
     )
     session.add(row)
     await session.flush()
+    if create_parent_login and email:
+        from schoolpass.admin.directory import ensure_user_with_role
+
+        user = await ensure_user_with_role(
+            session,
+            ctx,
+            email=email,
+            role_name="parent",
+            phone_e164=phone_e164,
+        )
+        row.user_id = user.id
+        await session.flush()
     await _audit(
         session,
         ctx,

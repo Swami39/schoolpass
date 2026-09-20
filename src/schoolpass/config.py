@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     fcm_enabled: bool = False
 
     cors_origins: str = ""
+    # Used when admin/import creates parent or teacher logins. Leave empty in production
+    # until an invite-email flow exists; local demo can match the seed password.
+    directory_bootstrap_password: str = ""
 
     rfid_request_max_skew_seconds: int = 300
     rfid_nonce_ttl_seconds: int = 600
