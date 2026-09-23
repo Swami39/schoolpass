@@ -4,14 +4,22 @@ import 'dart:io';
 import 'package:attendant_nfc/attendant_nfc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nfc_manager/nfc_manager.dart';
+import 'package:nfc_manager/nfc_manager_android.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../api/attendant_errors.dart';
 import '../app/attendant_app_controller.dart';
 import '../gps/trip_gps_tracker.dart';
 import '../trips/trip_models.dart';
+import 'format.dart';
+import 'widgets.dart';
 
-/// Transport NFC boarding with offline outbox (manual UID until platform NFC is wired).
+/// Transport NFC boarding with offline outbox and live GPS.
+///
+/// Primary flow is tap-to-scan via the phone's NFC reader; manual UID entry
+/// remains as a fallback for phones without NFC.
 class TripScanScreen extends StatefulWidget {
   const TripScanScreen({required this.controller, required this.trip, super.key});
 
@@ -31,11 +39,27 @@ class _TripScanScreenState extends State<TripScanScreen> {
   String? _status;
   bool _booting = true;
   NfcEventType _eventType = NfcEventType.boarding;
+  bool _nfcAvailable = false;
+  bool _nfcScanning = false;
+  int _scanCount = 0;
+  String? _lastUid;
+  DateTime? _lastUidAt;
 
   @override
   void initState() {
     super.initState();
     _boot();
+  }
+
+  /// Durable app-documents path; falls back to temp only if that fails.
+  Future<String> _outboxDbPath(String tripId) async {
+    final fileName = 'schoolpass_bus_nfc_$tripId.db';
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      return '${dir.path}/$fileName';
+    } catch (_) {
+      return '${Directory.systemTemp.path}/$fileName';
+    }
   }
 
   Future<void> _boot() async {
@@ -45,9 +69,7 @@ class _TripScanScreenState extends State<TripScanScreen> {
       if (kIsWeb) {
         store = NfcOutboxStore.openInMemory();
       } else {
-        final dbPath =
-            '${Directory.systemTemp.path}/schoolpass_bus_nfc_${widget.trip.id}.db';
-        store = NfcOutboxStore.open(path: dbPath);
+        store = NfcOutboxStore.open(path: await _outboxDbPath(widget.trip.id));
       }
       store.recoverSyncingToPending();
       final tripContext = MutableTripContext()
@@ -83,6 +105,7 @@ class _TripScanScreenState extends State<TripScanScreen> {
       });
       // Non-blocking: permission prompts and first fix arrive async.
       unawaited(gpsTracker.start());
+      unawaited(_detectNfc());
     } on AttendantUnauthorized {
       await widget.controller.logout();
     } catch (_) {
@@ -94,9 +117,120 @@ class _TripScanScreenState extends State<TripScanScreen> {
     }
   }
 
+  Future<void> _detectNfc() async {
+    var availability = NfcAvailability.unsupported;
+    try {
+      availability = await NfcManager.instance.checkAvailability();
+    } catch (_) {
+      // Leave as unsupported.
+    }
+    if (!mounted) return;
+    setState(() {
+      _nfcAvailable = availability == NfcAvailability.enabled;
+      if (availability == NfcAvailability.disabled) {
+        _error = 'NFC is turned off on this phone. Enable it in Settings to scan cards.';
+      }
+    });
+  }
+
+  Future<void> _startNfcScanning() async {
+    if (_nfcScanning) return;
+    setState(() {
+      _nfcScanning = true;
+      _error = null;
+      _status = 'Hold a student card near the phone…';
+    });
+    try {
+      await NfcManager.instance.startSession(
+        pollingOptions: {
+          NfcPollingOption.iso14443,
+          NfcPollingOption.iso15693,
+          NfcPollingOption.iso18092,
+        },
+        onDiscovered: (NfcTag tag) {
+          final id = NfcTagAndroid.from(tag)?.id;
+          if (id == null || id.isEmpty) {
+            if (mounted) {
+              setState(() => _error = 'Card detected, but its UID could not be read.');
+            }
+            return;
+          }
+          final uid = id.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
+          unawaited(_recordNfcUid(uid));
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _nfcScanning = false;
+        _error = 'Could not start NFC scanning.';
+      });
+    }
+  }
+
+  Future<void> _stopNfcScanning() async {
+    try {
+      await NfcManager.instance.stopSession();
+    } catch (_) {
+      // No active session — nothing to stop.
+    }
+    if (mounted) {
+      setState(() => _nfcScanning = false);
+    }
+  }
+
+  /// Debounces a card held against the phone so it is not recorded twice.
+  Future<void> _recordNfcUid(String uid) async {
+    final now = DateTime.now();
+    if (_lastUid == uid &&
+        _lastUidAt != null &&
+        now.difference(_lastUidAt!) < const Duration(seconds: 4)) {
+      return;
+    }
+    _lastUid = uid;
+    _lastUidAt = now;
+    await _recordScan(uid);
+  }
+
+  Future<void> _recordScan(String uid) async {
+    final service = _service;
+    if (service == null || !mounted) return;
+    setState(() {
+      _error = null;
+      _status = 'Recording $uid…';
+    });
+    try {
+      final event = await service.recordScanAndTrySync(cardUid: uid, eventType: _eventType);
+      if (!mounted) return;
+      setState(() {
+        _scanCount++;
+        _status =
+            '${prettifyLabel(_eventType.name)} recorded · seq ${event.deviceSequence} · ${event.syncState.name}';
+        if (event.rejectionCode != null) {
+          _error = 'Rejected: ${event.rejectionCode}';
+        }
+      });
+    } on NoActiveTripError {
+      if (!mounted) return;
+      setState(() => _error = 'No active trip context.');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Scan failed. Please try again.');
+    }
+  }
+
+  Future<void> _submitManual() async {
+    final raw = _uid.text.trim();
+    if (raw.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    await _recordScan(raw);
+    _uid.clear();
+  }
+
   @override
   void dispose() {
     _uid.dispose();
+    NfcManager.instance.stopSession().ignore();
     final tracker = _gpsTracker;
     _gpsTracker = null;
     if (tracker != null) {
@@ -108,75 +242,254 @@ class _TripScanScreenState extends State<TripScanScreen> {
     super.dispose();
   }
 
-  Future<void> _scan() async {
-    final service = _service;
-    if (service == null) return;
-    final raw = _uid.text.trim();
-    if (raw.isEmpty) return;
-    setState(() {
-      _error = null;
-      _status = 'Recording scan…';
-    });
-    try {
-      final event = await service.recordScanAndTrySync(cardUid: raw, eventType: _eventType);
-      if (!mounted) return;
-      setState(() {
-        _status = '${event.syncState.name} · seq ${event.deviceSequence}';
-        if (event.rejectionCode != null) {
-          _error = 'Rejected: ${event.rejectionCode}';
-        }
-      });
-      _uid.clear();
-    } on NoActiveTripError {
-      setState(() => _error = 'No active trip context.');
-    } catch (_) {
-      setState(() => _error = 'Scan failed.');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Bus NFC · ${widget.trip.shift}')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: _booting
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
+      appBar: AppBar(title: Text('${prettifyLabel(widget.trip.shift)} trip')),
+      body: _booting
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Trip ${widget.trip.id}', style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 8),
+                  _TripHeaderCard(trip: widget.trip),
+                  const SizedBox(height: 12),
                   if (_gpsTracker != null) ...[
                     ValueListenableBuilder<GpsTrackerSnapshot>(
                       valueListenable: _gpsTracker!.snapshot,
                       builder: (context, snap, _) => _GpsStatusCard(snapshot: snap),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                   ],
+                  Text('Recording', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 8),
                   SegmentedButton<NfcEventType>(
                     segments: const [
-                      ButtonSegment(value: NfcEventType.boarding, label: Text('Boarding')),
-                      ButtonSegment(value: NfcEventType.dropoff, label: Text('Drop-off')),
+                      ButtonSegment(
+                        value: NfcEventType.boarding,
+                        label: Text('Boarding'),
+                        icon: Icon(Icons.arrow_upward_outlined),
+                      ),
+                      ButtonSegment(
+                        value: NfcEventType.dropoff,
+                        label: Text('Drop-off'),
+                        icon: Icon(Icons.arrow_downward_outlined),
+                      ),
                     ],
                     selected: {_eventType},
                     onSelectionChanged: (s) => setState(() => _eventType = s.first),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Enter HF card UID (tap NFC hardware when integrated).'),
-                  TextField(
-                    controller: _uid,
-                    decoration: const InputDecoration(labelText: 'Card UID'),
-                    onSubmitted: (_) => _scan(),
+                  _NfcScanCard(
+                    available: _nfcAvailable,
+                    scanning: _nfcScanning,
+                    scanCount: _scanCount,
+                    onStart: _startNfcScanning,
+                    onStop: _stopNfcScanning,
                   ),
                   const SizedBox(height: 12),
-                  FilledButton(onPressed: _scan, child: const Text('Record scan')),
-                  if (_status != null) Text(_status!),
-                  if (_error != null)
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Card(
+                    child: ExpansionTile(
+                      leading: const Icon(Icons.keyboard_outlined),
+                      title: const Text('Enter card UID manually'),
+                      subtitle: const Text('Fallback for phones without NFC'),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _uid,
+                                  decoration: const InputDecoration(labelText: 'Card UID'),
+                                  textCapitalization: TextCapitalization.characters,
+                                  onSubmitted: (_) => _submitManual(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                onPressed: _submitManual,
+                                child: const Text('Record'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_status != null) ...[
+                    const SizedBox(height: 12),
+                    _StatusLine(text: _status!),
+                  ],
+                  if (_error != null) ...[
+                    const SizedBox(height: 8),
+                    ErrorBanner(message: _error!),
+                  ],
                 ],
               ),
+            ),
+    );
+  }
+}
+
+class _TripHeaderCard extends StatelessWidget {
+  const _TripHeaderCard({required this.trip});
+
+  final AttendantTrip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final date = DateTime.tryParse(trip.serviceDate);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.directions_bus, color: scheme.onPrimaryContainer, size: 28),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${prettifyLabel(trip.shift)} trip',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    date != null ? formatDay(date) : trip.serviceDate,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                prettifyLabel(trip.status),
+                style: TextStyle(
+                  color: scheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _NfcScanCard extends StatelessWidget {
+  const _NfcScanCard({
+    required this.available,
+    required this.scanning,
+    required this.scanCount,
+    required this.onStart,
+    required this.onStop,
+  });
+
+  final bool available;
+  final bool scanning;
+  final int scanCount;
+  final VoidCallback onStart;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: scanning ? scheme.primary : scheme.primaryContainer,
+              ),
+              child: Icon(
+                Icons.nfc_outlined,
+                size: 44,
+                color: scanning ? scheme.onPrimary : scheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              scanning ? 'Ready to scan' : 'Tap student cards',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              scanning
+                  ? 'Hold each card near the back of the phone.'
+                  : available
+                      ? 'Scan cards with the phone\'s NFC reader.'
+                      : 'NFC is not available on this phone — use manual entry below.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            if (scanning)
+              OutlinedButton.icon(
+                onPressed: onStop,
+                icon: const Icon(Icons.stop_outlined),
+                label: const Text('Stop scanning'),
+              )
+            else
+              FilledButton.icon(
+                onPressed: available ? onStart : null,
+                icon: const Icon(Icons.nfc_outlined),
+                label: const Text('Start scanning'),
+              ),
+            if (scanCount > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Scans this session: $scanCount',
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(Icons.check_circle_outline, size: 18, color: scheme.primary),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
     );
   }
 }

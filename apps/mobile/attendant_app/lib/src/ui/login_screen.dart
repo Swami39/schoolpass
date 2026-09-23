@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/attendant_app_controller.dart';
+import 'widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.controller, super.key});
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
   final _password = TextEditingController();
   bool _submitting = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -45,6 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
+    FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     await widget.controller.login(_identifier.text.trim(), _password.text);
     if (mounted) {
@@ -54,42 +58,87 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final error = widget.controller.errorMessage;
     return Scaffold(
-      appBar: AppBar(title: const Text('SchoolPass Bus Attendant')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _identifier,
-                decoration: const InputDecoration(labelText: 'Email or phone'),
-                keyboardType: TextInputType.emailAddress,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  const Center(child: BrandMark(icon: Icons.directions_bus)),
+                  const SizedBox(height: 20),
+                  Text(
+                    'SchoolPass',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Bus Attendant',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Scan student cards and share live bus location.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _identifier,
+                    decoration: const InputDecoration(
+                      labelText: 'Email or phone',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.username],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _password,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
+                    onSubmitted: (_) => _submit(),
+                    autofillHints: const [AutofillHints.password],
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    ErrorBanner(message: error),
+                  ],
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _submitting ? null : _submit,
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Sign in'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _password,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-              if (error != null) ...[
-                const SizedBox(height: 12),
-                Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              ],
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Sign in'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
