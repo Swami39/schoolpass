@@ -4,6 +4,8 @@ import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
 import 'academic_form_screens.dart';
 import 'academic_list_screen.dart';
+import 'admin_widgets.dart';
+import 'format.dart';
 
 class AcademicHubScreen extends StatelessWidget {
   const AcademicHubScreen({required this.deps, super.key});
@@ -12,21 +14,31 @@ class AcademicHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        ListTile(
-          leading: const Icon(Icons.calendar_month),
-          title: const Text('Academic years'),
-          subtitle: const Text('Create and review school years'),
+        Text('Set up the school year', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(
+          'Years, classes, subjects, and who teaches them.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        AdminSectionCard(
+          icon: Icons.calendar_month_outlined,
+          title: 'Academic years',
+          subtitle: 'Create and review school years',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<AcademicYearItem>(
                 title: 'Academic years',
                 deps: deps,
                 loader: deps.academicApi.fetchAcademicYears,
-                label: (item) => '${item.name} (${item.code}) — ${item.status}',
-                subtitle: (item) => 'ID: ${item.id}',
+                label: (item) => item.name,
+                subtitle: (item) => '${item.code} · ${prettifyLabel(item.status)}',
                 onCreate: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => AcademicYearFormScreen(deps: deps)),
@@ -36,18 +48,19 @@ class AcademicHubScreen extends StatelessWidget {
             ),
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.class_),
-          title: const Text('Classes & sections'),
-          subtitle: const Text('Add classes (optionally with a first section)'),
+        const SizedBox(height: 12),
+        AdminSectionCard(
+          icon: Icons.class_outlined,
+          title: 'Classes & sections',
+          subtitle: 'Add classes (optionally with a first section)',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<SchoolClassItem>(
                 title: 'Classes',
                 deps: deps,
                 loader: deps.academicApi.fetchClasses,
-                label: (item) => '${item.name} (${item.code}) — ${item.status}',
-                subtitle: (item) => 'ID: ${item.id}',
+                label: (item) => item.name,
+                subtitle: (item) => '${item.code} · ${prettifyLabel(item.status)}',
                 onCreate: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => SchoolClassFormScreen(deps: deps)),
@@ -57,18 +70,19 @@ class AcademicHubScreen extends StatelessWidget {
             ),
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.grid_view),
-          title: const Text('Sections'),
-          subtitle: const Text('Add a section under an existing class'),
+        const SizedBox(height: 12),
+        AdminSectionCard(
+          icon: Icons.grid_view_outlined,
+          title: 'Sections',
+          subtitle: 'Add a section under an existing class',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<SectionItem>(
                 title: 'Sections',
                 deps: deps,
                 loader: deps.academicApi.fetchSections,
-                label: (item) => '${item.name} — ${item.status}',
-                subtitle: (item) => 'Section ID: ${item.id}\nClass ID: ${item.classId}',
+                label: (item) => item.name,
+                subtitle: (item) => prettifyLabel(item.status),
                 onCreate: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => SectionFormScreen(deps: deps)),
@@ -78,17 +92,19 @@ class AcademicHubScreen extends StatelessWidget {
             ),
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.menu_book),
-          title: const Text('Subjects'),
+        const SizedBox(height: 12),
+        AdminSectionCard(
+          icon: Icons.menu_book_outlined,
+          title: 'Subjects',
+          subtitle: 'The subjects taught at your school',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<SubjectItem>(
                 title: 'Subjects',
                 deps: deps,
                 loader: deps.academicApi.fetchSubjects,
-                label: (item) => '${item.name} (${item.code}) — ${item.status}',
-                subtitle: (item) => 'ID: ${item.id}',
+                label: (item) => item.name,
+                subtitle: (item) => '${item.code} · ${prettifyLabel(item.status)}',
                 onCreate: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => SubjectFormScreen(deps: deps)),
@@ -98,19 +114,19 @@ class AcademicHubScreen extends StatelessWidget {
             ),
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.person_pin),
-          title: const Text('Teacher assignments'),
-          subtitle: const Text('Link a teacher to a class section'),
+        const SizedBox(height: 12),
+        AdminSectionCard(
+          icon: Icons.person_pin_outlined,
+          title: 'Teacher assignments',
+          subtitle: 'Link a teacher to a class section',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => AcademicListScreen<TeacherAssignmentItem>(
                 title: 'Teacher assignments',
                 deps: deps,
                 loader: deps.academicApi.fetchTeacherAssignments,
-                label: (item) => '${item.assignmentRole} — ${item.status}',
-                subtitle: (item) =>
-                    'ID: ${item.id}\nTeacher user: ${item.teacherUserId}\nSection: ${item.sectionId}',
+                label: (item) => prettifyLabel(item.assignmentRole),
+                subtitle: (item) => prettifyLabel(item.status),
                 onCreate: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => TeacherAssignmentFormScreen(deps: deps)),

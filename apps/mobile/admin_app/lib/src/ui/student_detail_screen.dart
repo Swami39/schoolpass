@@ -5,6 +5,8 @@ import '../app/admin_dependencies.dart';
 import '../operations/operations_models.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
+import 'format.dart';
 import 'guardian_form_screen.dart';
 import 'student_form_screen.dart';
 
@@ -100,7 +102,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                     initialValue: year,
                     decoration: const InputDecoration(labelText: 'Academic year'),
                     items: years
-                        .map((y) => DropdownMenuItem(value: y, child: Text('${y.name} (${y.id})')))
+                        .map((y) => DropdownMenuItem(value: y, child: Text(y.name)))
                         .toList(),
                     onChanged: (v) => setLocal(() => year = v),
                   ),
@@ -112,7 +114,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                         initialValue: clazz,
                         decoration: const InputDecoration(labelText: 'Class'),
                         items: classes
-                            .map((c) => DropdownMenuItem(value: c, child: Text('${c.name} (${c.id})')))
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c.name)))
                             .toList(),
                         onChanged: (v) => setLocal(() {
                           clazz = v;
@@ -130,7 +132,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                           initialValue: section,
                           decoration: const InputDecoration(labelText: 'Section'),
                           items: sections
-                              .map((s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.id})')))
+                              .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
                               .toList(),
                           onChanged: (v) => setLocal(() => section = v),
                         );
@@ -150,7 +152,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                           .map(
                             (g) => DropdownMenuItem(
                               value: g,
-                              child: Text('${g.displayName} (${g.id})'),
+                              child: Text(g.displayName),
                             ),
                           )
                           .toList(),
@@ -354,104 +356,129 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student'),
+        title: Text(_student?.displayName ?? 'Student'),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-          if (_student != null) IconButton(onPressed: _edit, icon: const Icon(Icons.edit)),
+          IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
+          if (_student != null)
+            IconButton(onPressed: _edit, icon: const Icon(Icons.edit), tooltip: 'Edit'),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_error!),
-                      FilledButton(onPressed: _load, child: const Text('Retry')),
-                    ],
-                  ),
-                )
+              ? ErrorRetry(message: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      Text(_student!.displayName, style: Theme.of(context).textTheme.headlineSmall),
-                      Text('Admission: ${_student!.admissionNo}'),
-                      Text('Student ID: ${_student!.id}'),
-                      Text('Status: ${_student!.status}'),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Text('Enrollments', style: Theme.of(context).textTheme.titleMedium),
-                          const Spacer(),
-                          TextButton(onPressed: _addEnrollment, child: const Text('Add')),
-                        ],
+                      _StudentHeader(student: _student!),
+                      const SizedBox(height: 20),
+                      SectionHeader(
+                        title: 'Enrollments',
+                        action: TextButton.icon(
+                          onPressed: _addEnrollment,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add'),
+                        ),
                       ),
+                      const SizedBox(height: 8),
                       if (_enrollments.isEmpty)
-                        const Text('No enrollments')
+                        const EmptyState(
+                          icon: Icons.class_outlined,
+                          title: 'No enrollments yet',
+                          subtitle: 'Enroll this student into a class and section.',
+                        )
                       else
                         ..._enrollments.map(
-                          (e) => ListTile(
-                            title: Text('${e.status} — started ${e.startsOn}'),
-                            subtitle: Text(
-                              'Enrollment ID: ${e.id}\n'
-                              'Class ID: ${e.classId}\n'
-                              'Section ID: ${e.sectionId}\n'
-                              'Year ID: ${e.academicYearId}',
+                          (e) => Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              title: Row(
+                                children: [
+                                  Expanded(child: Text('Started ${formatDateString(e.startsOn)}')),
+                                  StatusChip(status: e.status),
+                                ],
+                              ),
+                              subtitle: e.endsOn == null
+                                  ? null
+                                  : Text('Ended ${formatDateString(e.endsOn!)}'),
+                              trailing: e.status == 'active'
+                                  ? PopupMenuButton<String>(
+                                      onSelected: (v) {
+                                        if (v == 'move') _moveEnrollment(e);
+                                        if (v == 'close') _closeEnrollment(e);
+                                      },
+                                      itemBuilder: (_) => const [
+                                        PopupMenuItem(value: 'move', child: Text('Move class/section')),
+                                        PopupMenuItem(value: 'close', child: Text('Close enrollment')),
+                                      ],
+                                    )
+                                  : null,
                             ),
-                            isThreeLine: true,
-                            trailing: e.status == 'active'
-                                ? PopupMenuButton<String>(
-                                    onSelected: (v) {
-                                      if (v == 'move') _moveEnrollment(e);
-                                      if (v == 'close') _closeEnrollment(e);
-                                    },
-                                    itemBuilder: (_) => const [
-                                      PopupMenuItem(value: 'move', child: Text('Move class/section')),
-                                      PopupMenuItem(value: 'close', child: Text('Close enrollment')),
-                                    ],
-                                  )
-                                : null,
                           ),
                         ),
-                      const SizedBox(height: 16),
-                      Text('Cards', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 20),
+                      const SectionHeader(title: 'Cards'),
+                      const SizedBox(height: 8),
                       if (_cardAssignments.isEmpty)
-                        const Text('No card assignments')
+                        const EmptyState(
+                          icon: Icons.credit_card_outlined,
+                          title: 'No card assigned',
+                          subtitle: 'Assign a physical ID card to enable gate and bus taps.',
+                        )
                       else
                         ..._cardAssignments.map(
-                          (a) => ListTile(
-                            title: Text('Card ${a.physicalCardId}'),
-                            subtitle: Text('Assignment ID: ${a.id} • ${a.status}'),
-                          ),
+                          (a) {
+                            final shortId = a.physicalCardId.length > 8
+                                ? a.physicalCardId.substring(0, 8)
+                                : a.physicalCardId;
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: const Icon(Icons.credit_card_outlined),
+                                title: Text('Card $shortId'),
+                                trailing: StatusChip(status: a.status),
+                              ),
+                            );
+                          },
                         ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Text('Guardians', style: Theme.of(context).textTheme.titleMedium),
-                          const Spacer(),
-                          TextButton(onPressed: _linkGuardian, child: const Text('Link existing')),
-                          TextButton(onPressed: _createParent, child: const Text('New parent')),
-                        ],
+                      const SizedBox(height: 20),
+                      SectionHeader(
+                        title: 'Guardians',
+                        action: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(onPressed: _linkGuardian, child: const Text('Link existing')),
+                            TextButton(onPressed: _createParent, child: const Text('New parent')),
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 8),
                       if (_guardianLinks.isEmpty)
-                        const Text('No guardians linked')
+                        const EmptyState(
+                          icon: Icons.family_restroom_outlined,
+                          title: 'No guardians linked',
+                          subtitle: 'Link a parent so they can use the Parent app.',
+                        )
                       else
                         ..._guardianLinks.map(
                           (g) {
                             final parent = _guardianById[g.guardianId];
-                            return ListTile(
-                              title: Text(parent?.displayName ?? 'Parent'),
-                              subtitle: Text(
-                                [
-                                  g.relationshipType,
-                                  if (parent?.email != null) parent!.email!,
-                                  if (g.isPrimaryContact) 'primary contact',
-                                  if (parent?.userId != null) 'Parent app login linked',
-                                  if (parent?.userId == null) 'No parent-app login yet',
-                                ].join(' · '),
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: const Icon(Icons.person_outline),
+                                title: Text(parent?.displayName ?? 'Parent'),
+                                subtitle: Text(
+                                  [
+                                    prettifyLabel(g.relationshipType),
+                                    if (parent?.email != null) parent!.email!,
+                                    if (g.isPrimaryContact) 'Primary contact',
+                                    if (parent?.userId != null) 'Parent app login linked',
+                                    if (parent?.userId == null) 'No parent-app login yet',
+                                  ].join(' · '),
+                                ),
                               ),
                             );
                           },
@@ -459,6 +486,69 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+}
+
+class _StudentHeader extends StatelessWidget {
+  const _StudentHeader({required this.student});
+
+  final StudentDetail student;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final initials = '${student.firstName.isNotEmpty ? student.firstName[0] : '?'}'
+        '${student.lastName.isNotEmpty ? student.lastName[0] : ''}';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: scheme.primaryContainer,
+              child: Text(
+                initials.toUpperCase(),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: scheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.displayName,
+                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Admission ${student.admissionNo}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (student.dateOfBirth != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Born ${formatDateString(student.dateOfBirth!)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            StatusChip(status: student.status),
+          ],
+        ),
+      ),
     );
   }
 }

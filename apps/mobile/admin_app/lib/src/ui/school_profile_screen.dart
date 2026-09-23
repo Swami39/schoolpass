@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/admin_app_controller.dart';
+import 'admin_widgets.dart';
 
 class SchoolProfileScreen extends StatefulWidget {
   const SchoolProfileScreen({required this.controller, super.key});
@@ -66,6 +67,7 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
@@ -76,28 +78,25 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
         return ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            if (widget.controller.errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  widget.controller.errorMessage!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
+            Text('School profile', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 4),
+            Text(
+              'How your school appears across SchoolPass.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            if (widget.controller.successMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  widget.controller.successMessage!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                ),
-              ),
-            if (widget.controller.schoolProfile?.logoFileId != null)
-              ListTile(
-                leading: const Icon(Icons.image_outlined),
-                title: const Text('School logo'),
-                subtitle: Text('File ${widget.controller.schoolProfile!.logoFileId}'),
-              ),
+            ),
+            const SizedBox(height: 16),
+            if (widget.controller.errorMessage != null) ...[
+              ErrorBanner(message: widget.controller.errorMessage!),
+              const SizedBox(height: 16),
+            ],
+            if (widget.controller.successMessage != null) ...[
+              SuccessBanner(message: widget.controller.successMessage!),
+              const SizedBox(height: 16),
+            ],
+            const SectionHeader(title: 'Identity'),
+            const SizedBox(height: 8),
             TextField(
               controller: _legalName,
               decoration: const InputDecoration(labelText: 'Legal name'),
@@ -107,10 +106,15 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
               controller: _displayName,
               decoration: const InputDecoration(labelText: 'Display name'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            const SectionHeader(title: 'Locale'),
+            const SizedBox(height: 8),
             TextField(
               controller: _timezone,
-              decoration: const InputDecoration(labelText: 'Timezone'),
+              decoration: const InputDecoration(
+                labelText: 'Timezone',
+                helperText: 'e.g. Asia/Kolkata',
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -118,7 +122,9 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
               decoration: const InputDecoration(labelText: 'Country (ISO code)'),
               maxLength: 2,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            const SectionHeader(title: 'Contact'),
+            const SizedBox(height: 8),
             TextField(
               controller: _contactEmail,
               decoration: const InputDecoration(labelText: 'Contact email'),
@@ -130,7 +136,9 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
               decoration: const InputDecoration(labelText: 'Contact phone'),
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            const SectionHeader(title: 'Address'),
+            const SizedBox(height: 8),
             TextField(
               controller: _address,
               decoration: const InputDecoration(labelText: 'Address'),
@@ -145,7 +153,7 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
               decoration: const InputDecoration(labelText: 'Postal code'),
             ),
             const SizedBox(height: 24),
-            FilledButton(
+            FilledButton.icon(
               onPressed: widget.controller.savingProfile
                   ? null
                   : () async {
@@ -165,13 +173,14 @@ class _SchoolProfileScreenState extends State<SchoolProfileScreen> {
                         postalCode: _postal.text.trim().isEmpty ? null : _postal.text.trim(),
                       );
                     },
-              child: widget.controller.savingProfile
+              icon: widget.controller.savingProfile
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Save profile'),
+                  : const Icon(Icons.save_outlined),
+              label: const Text('Save profile'),
             ),
           ],
         );

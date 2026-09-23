@@ -5,6 +5,7 @@ import '../app/teacher_app_controller.dart';
 import '../classes/teacher_class_models.dart';
 import '../classes/teacher_student_models.dart';
 import '../results/teacher_results_models.dart';
+import 'teacher_widgets.dart';
 
 class MarksScreen extends StatefulWidget {
   const MarksScreen({
@@ -27,6 +28,9 @@ class _MarksScreenState extends State<MarksScreen> {
   String? _error;
   List<TeacherStudent> _students = const [];
   Map<String, int?> _marks = {};
+  final Set<String> _savingIds = {};
+
+  int get _recordedCount => _marks.values.where((m) => m != null).length;
 
   @override
   void initState() {
@@ -62,6 +66,8 @@ class _MarksScreenState extends State<MarksScreen> {
   Future<void> _save(TeacherStudent student, String raw) async {
     final parsed = int.tryParse(raw.trim());
     if (parsed == null) return;
+    if (_savingIds.contains(student.id)) return;
+    setState(() => _savingIds.add(student.id));
     try {
       final updated = await widget.controller.deps.resultsApi.upsertMark(
         assessmentId: widget.assessment.id,
@@ -70,9 +76,11 @@ class _MarksScreenState extends State<MarksScreen> {
       );
       if (!mounted) return;
       setState(() => _marks[student.id] = updated.marks);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved ${student.displayName}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved ${student.displayName}: ${updated.marks}')),
+        );
+      }
     } on TeacherUnauthorized {
       await widget.controller.logout();
     } on TeacherNotFound {
@@ -85,11 +93,15 @@ class _MarksScreenState extends State<MarksScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid marks or save failed.')),
       );
+    } finally {
+      if (mounted) setState(() => _savingIds.remove(student.id));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text('${widget.assessment.code} marks')),
       body: _loading
@@ -97,12 +109,49 @@ class _MarksScreenState extends State<MarksScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text('Maximum: ${widget.assessment.maxMarks}'),
-                if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Card(
+                  color: scheme.primaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.assessment.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Maximum ${widget.assessment.maxMarks} marks · '
+                          '$_recordedCount of ${_students.length} recorded',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_error != null) ...[
+                  ErrorBanner(message: _error!, onRetry: _load),
+                  const SizedBox(height: 8),
+                ],
+                if (_students.isEmpty && _error == null)
+                  const EmptyState(
+                    icon: Icons.people_outline,
+                    title: 'No students enrolled',
+                    subtitle: 'There is nobody to mark for this assessment.',
+                  ),
                 for (final student in _students)
                   _MarkRow(
                     student: student,
                     initial: _marks[student.id]?.toString() ?? '',
+                    maxMarks: widget.assessment.maxMarks,
+                    saving: _savingIds.contains(student.id),
                     onSave: (v) => _save(student, v),
                   ),
               ],
@@ -112,10 +161,18 @@ class _MarksScreenState extends State<MarksScreen> {
 }
 
 class _MarkRow extends StatefulWidget {
-  const _MarkRow({required this.student, required this.initial, required this.onSave});
+  const _MarkRow({
+    required this.student,
+    required this.initial,
+    required this.maxMarks,
+    required this.saving,
+    required this.onSave,
+  });
 
   final TeacherStudent student;
   final String initial;
+  final int maxMarks;
+  final bool saving;
   final Future<void> Function(String value) onSave;
 
   @override
@@ -139,16 +196,57 @@ class _MarkRowState extends State<_MarkRow> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(widget.student.displayName),
-      subtitle: TextField(
-        controller: _controller,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Marks'),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.save_outlined),
-        onPressed: () => widget.onSave(_controller.text),
+    final hasMark = widget.initial.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              InitialsAvatar(name: widget.student.displayName, radius: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.student.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (hasMark)
+                      StatusChip(
+                        label: '${widget.initial} / ${widget.maxMarks}',
+                        color: const Color(0xFF15803D),
+                        icon: Icons.check_circle_outline,
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 96,
+                child: TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Marks'),
+                  onSubmitted: widget.onSave,
+                ),
+              ),
+              const SizedBox(width: 8),
+              widget.saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton.filledTonal(
+                      tooltip: 'Save marks',
+                      icon: const Icon(Icons.check),
+                      onPressed: () => widget.onSave(_controller.text),
+                    ),
+            ],
+          ),
+        ),
       ),
     );
   }

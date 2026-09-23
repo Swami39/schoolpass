@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
+import 'format.dart';
 
 class StaffFormScreen extends StatefulWidget {
   const StaffFormScreen({required this.deps, this.existing, super.key});
@@ -84,7 +86,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (widget.existing == null)
+          if (widget.existing == null) ...[
             TextField(
               controller: _userIdCtrl,
               decoration: const InputDecoration(
@@ -92,18 +94,28 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                 helperText: 'UUID of an existing user account for this school',
               ),
             ),
+            const SizedBox(height: 12),
+          ],
           DropdownButtonFormField<String>(
             initialValue: _staffType,
-            items: _types.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            items: _types
+                .map((t) => DropdownMenuItem(value: t, child: Text(prettifyLabel(t))))
+                .toList(),
             onChanged: _submitting ? null : (v) => setState(() => _staffType = v ?? _staffType),
             decoration: const InputDecoration(labelText: 'Staff type'),
           ),
+          const SizedBox(height: 12),
           TextField(controller: _codeCtrl, decoration: const InputDecoration(labelText: 'Employee code')),
-          if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          const SizedBox(height: 16),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 24),
           FilledButton(
             onPressed: _submitting ? null : _submit,
-            child: _submitting ? const CircularProgressIndicator() : const Text('Save'),
+            child: _submitting
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save'),
           ),
         ],
       ),

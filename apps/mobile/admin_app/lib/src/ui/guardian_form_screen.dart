@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
 
 class GuardianFormScreen extends StatefulWidget {
   const GuardianFormScreen({required this.deps, this.existing, super.key});
@@ -80,18 +81,29 @@ class _GuardianFormScreenState extends State<GuardianFormScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           TextField(controller: _firstCtrl, decoration: const InputDecoration(labelText: 'First name')),
+          const SizedBox(height: 12),
           TextField(controller: _lastCtrl, decoration: const InputDecoration(labelText: 'Last name')),
+          const SizedBox(height: 12),
           TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone (E.164)')),
+          const SizedBox(height: 12),
           TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email (Parent app login)')),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Saving with an email creates a parent login. First-time password is the school directory password.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-          if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          const SizedBox(height: 16),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 24),
           FilledButton(
             onPressed: _submitting ? null : _submit,
-            child: _submitting ? const CircularProgressIndicator() : const Text('Save'),
+            child: _submitting
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save'),
           ),
         ],
       ),

@@ -4,6 +4,7 @@ import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
 
 class StudentFormScreen extends StatefulWidget {
   const StudentFormScreen({required this.deps, this.existing, super.key});
@@ -219,21 +220,26 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (!widget.isEdit)
+                if (!widget.isEdit) ...[
                   TextField(
                     controller: _admissionCtrl,
                     decoration: const InputDecoration(labelText: 'Admission number / student ID'),
                     textInputAction: TextInputAction.next,
                   ),
+                  const SizedBox(height: 12),
+                ],
                 TextField(controller: _firstCtrl, decoration: const InputDecoration(labelText: 'First name')),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _middleCtrl,
                   decoration: const InputDecoration(labelText: 'Middle name (optional)'),
                 ),
+                const SizedBox(height: 12),
                 TextField(controller: _lastCtrl, decoration: const InputDecoration(labelText: 'Last name')),
                 if (!widget.isEdit) ...[
-                  const SizedBox(height: 16),
-                  Text('Enrollment', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 20),
+                  const SectionHeader(title: 'Enrollment'),
+                  const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Enroll into a class/section now'),
@@ -249,6 +255,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                       onChanged: _submitting ? null : (v) => setState(() => _year = v),
                       decoration: const InputDecoration(labelText: 'Academic year'),
                     ),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<SchoolClassItem>(
                       initialValue: _clazz,
                       items: _classes
@@ -257,6 +264,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                       onChanged: _submitting ? null : _onClassChanged,
                       decoration: const InputDecoration(labelText: 'Class'),
                     ),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<SectionItem>(
                       initialValue: _section,
                       items: _sections
@@ -266,11 +274,16 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                       decoration: const InputDecoration(labelText: 'Section'),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  Text('Parent / guardian', style: Theme.of(context).textTheme.titleMedium),
-                  const Text(
+                  const SizedBox(height: 20),
+                  const SectionHeader(title: 'Parent / guardian'),
+                  const SizedBox(height: 8),
+                  Text(
                     'The parent email becomes their Parent app login. Use the school directory password for first sign-in.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
+                  const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Link parent/guardian now'),
@@ -290,20 +303,24 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                         controller: _parentFirstCtrl,
                         decoration: const InputDecoration(labelText: 'Parent first name'),
                       ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _parentLastCtrl,
                         decoration: const InputDecoration(labelText: 'Parent last name'),
                       ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _parentEmailCtrl,
                         decoration: const InputDecoration(labelText: 'Parent email (login)'),
                         keyboardType: TextInputType.emailAddress,
                       ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _parentPhoneCtrl,
                         decoration: const InputDecoration(labelText: 'Parent phone (optional)'),
                         keyboardType: TextInputType.phone,
                       ),
+                      const SizedBox(height: 12),
                     ] else
                       DropdownButtonFormField<GuardianDetail>(
                         initialValue: _guardian,
@@ -320,6 +337,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                         onChanged: _submitting ? null : (v) => setState(() => _guardian = v),
                         decoration: const InputDecoration(labelText: 'Existing parent'),
                       ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _relationshipCtrl,
                       decoration: const InputDecoration(labelText: 'Relationship (e.g. parent)'),
@@ -328,7 +346,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
                 ],
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ErrorBanner(message: _error!),
                 ],
                 const SizedBox(height: 24),
                 FilledButton(

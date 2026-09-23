@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
+import 'admin_widgets.dart';
+import 'format.dart';
 
 typedef PeopleLoader<T> = Future<List<T>> Function({String? search, String? filter});
 
@@ -11,6 +13,7 @@ class PeopleListScreen<T> extends StatefulWidget {
     required this.deps,
     required this.loader,
     required this.label,
+    this.subtitle,
     this.onTap,
     this.filterOptions,
     this.onCreate,
@@ -22,6 +25,7 @@ class PeopleListScreen<T> extends StatefulWidget {
   final AdminDependencies deps;
   final PeopleLoader<T> loader;
   final String Function(T item) label;
+  final String Function(T item)? subtitle;
   final void Function(T item)? onTap;
   final List<String>? filterOptions;
   final VoidCallback? onCreate;
@@ -73,31 +77,41 @@ class _PeopleListScreenState<T> extends State<PeopleListScreen<T>> {
     final content = Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _searchCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Search',
-                    suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _load),
+                    hintText: 'Search ${widget.title.toLowerCase()}…',
+                    prefixIcon: const Icon(Icons.search),
                   ),
+                  textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _load(),
                 ),
               ),
-              if (widget.filterOptions != null && widget.filterOptions!.isNotEmpty)
+              if (widget.filterOptions != null && widget.filterOptions!.isNotEmpty) ...[
+                const SizedBox(width: 8),
                 DropdownButton<String>(
                   value: _filter,
                   hint: const Text('Filter'),
-                  items: widget.filterOptions!
-                      .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                      .toList(),
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('All'),
+                    ),
+                    ...widget.filterOptions!.map(
+                      (f) => DropdownMenuItem(value: f, child: Text(prettifyLabel(f))),
+                    ),
+                  ],
                   onChanged: (v) {
                     setState(() => _filter = v);
                     _load();
                   },
                 ),
+              ],
             ],
           ),
         ),
@@ -105,27 +119,37 @@ class _PeopleListScreenState<T> extends State<PeopleListScreen<T>> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_error!, textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          FilledButton(onPressed: _load, child: const Text('Retry')),
-                        ],
-                      ),
-                    )
+                  ? ErrorRetry(message: _error!, onRetry: _load)
                   : _items.isEmpty
-                      ? const Center(child: Text('No records found.'))
+                      ? EmptyState(
+                          icon: Icons.people_outline,
+                          title: 'No ${widget.title.toLowerCase()} found',
+                          subtitle: widget.onCreate != null
+                              ? 'Try a different search, or add a new record.'
+                              : 'Try a different search.',
+                          actionLabel: widget.onCreate != null ? 'Add new' : null,
+                          onAction: widget.onCreate,
+                        )
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                             itemCount: _items.length,
                             itemBuilder: (context, index) {
                               final item = _items[index];
-                              return ListTile(
-                                title: Text(widget.label(item)),
-                                onTap: widget.onTap == null ? null : () => widget.onTap!(item),
+                              final subtitle = widget.subtitle?.call(item);
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  title: Text(widget.label(item)),
+                                  subtitle: subtitle == null ? null : Text(subtitle),
+                                  trailing: widget.onTap == null
+                                      ? null
+                                      : const Icon(Icons.chevron_right),
+                                  onTap: widget.onTap == null
+                                      ? null
+                                      : () => widget.onTap!(item),
+                                ),
                               );
                             },
                           ),
@@ -135,7 +159,11 @@ class _PeopleListScreenState<T> extends State<PeopleListScreen<T>> {
     );
     final fab = widget.onCreate == null
         ? null
-        : FloatingActionButton(onPressed: widget.onCreate, child: const Icon(Icons.add));
+        : FloatingActionButton.extended(
+            onPressed: widget.onCreate,
+            icon: const Icon(Icons.add),
+            label: const Text('Add'),
+          );
     if (!widget.useScaffold) {
       return Stack(
         children: [

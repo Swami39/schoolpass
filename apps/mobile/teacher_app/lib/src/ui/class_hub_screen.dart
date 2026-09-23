@@ -7,6 +7,7 @@ import 'messages_screen.dart';
 import 'nfc_attendance_screen.dart';
 import 'results_screen.dart';
 import 'students_screen.dart';
+import 'teacher_widgets.dart';
 import 'timetable_screen.dart';
 
 class ClassHubScreen extends StatelessWidget {
@@ -15,64 +16,87 @@ class ClassHubScreen extends StatelessWidget {
   final TeacherAppController controller;
   final TeacherClassAssignment clazz;
 
+  void _open(BuildContext context, Widget screen) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => screen),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(clazz.displayLabel)),
       body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          ListTile(
-            leading: const Icon(Icons.people_outline),
-            title: const Text('Students'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => StudentsScreen(controller: controller, clazz: clazz),
-              ),
+          Text(
+            '${clazz.studentCount} students'
+            '${clazz.subjectName == null ? '' : ' · ${clazz.subjectName}'}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.fact_check_outlined),
-            title: const Text('Attendance'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AttendanceScreen(controller: controller, clazz: clazz),
-              ),
+          const SizedBox(height: 16),
+          const SectionHeader('Daily work'),
+          TeacherSectionCard(
+            icon: Icons.fact_check_outlined,
+            title: 'Attendance',
+            subtitle: 'Mark present, late, absent or excused',
+            onTap: () => _open(
+              context,
+              AttendanceScreen(controller: controller, clazz: clazz),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.nfc),
-            title: const Text('NFC attendance'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => NfcAttendanceScreen(controller: controller, clazz: clazz),
-              ),
+          const SizedBox(height: 8),
+          TeacherSectionCard(
+            icon: Icons.nfc,
+            title: 'NFC attendance',
+            subtitle: 'Tap student cards to record scans',
+            onTap: () => _open(
+              context,
+              NfcAttendanceScreen(controller: controller, clazz: clazz),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.schedule_outlined),
-            title: const Text('Timetable'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => TimetableScreen(controller: controller, clazz: clazz),
-              ),
+          const SizedBox(height: 8),
+          TeacherSectionCard(
+            icon: Icons.message_outlined,
+            title: 'Messages to parents',
+            subtitle: 'Send updates to guardians',
+            onTap: () => _open(
+              context,
+              MessagesScreen(controller: controller, clazz: clazz),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.grade_outlined),
-            title: const Text('Results'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ResultsScreen(controller: controller, clazz: clazz),
-              ),
+          const SizedBox(height: 16),
+          const SectionHeader('Class info'),
+          TeacherSectionCard(
+            icon: Icons.people_outline,
+            title: 'Students',
+            subtitle: '${clazz.studentCount} enrolled',
+            onTap: () => _open(
+              context,
+              StudentsScreen(controller: controller, clazz: clazz),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.message_outlined),
-            title: const Text('Messages to parents'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => MessagesScreen(controller: controller, clazz: clazz),
-              ),
+          const SizedBox(height: 8),
+          TeacherSectionCard(
+            icon: Icons.schedule_outlined,
+            title: 'Timetable',
+            subtitle: 'Weekly periods for this class',
+            onTap: () => _open(
+              context,
+              TimetableScreen(controller: controller, clazz: clazz),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TeacherSectionCard(
+            icon: Icons.grade_outlined,
+            title: 'Results',
+            subtitle: 'Assessments and marks',
+            onTap: () => _open(
+              context,
+              ResultsScreen(controller: controller, clazz: clazz),
             ),
           ),
         ],

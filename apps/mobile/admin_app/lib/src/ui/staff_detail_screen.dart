@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
+import 'format.dart';
 import 'staff_form_screen.dart';
 
 class StaffDetailScreen extends StatefulWidget {
@@ -53,23 +55,49 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final staff = _staff;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Staff'),
+        title: Text(staff == null ? 'Staff' : prettifyLabel(staff.staffType)),
         actions: [
-          if (_staff != null) IconButton(onPressed: _edit, icon: const Icon(Icons.edit)),
+          if (staff != null)
+            IconButton(onPressed: _edit, icon: const Icon(Icons.edit), tooltip: 'Edit'),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? ErrorRetry(message: _error!, onRetry: _load)
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text(_staff!.staffType, style: Theme.of(context).textTheme.headlineSmall),
-                    Text('Email: ${_staff!.email ?? '—'}'),
-                    Text('Employee code: ${_staff!.employeeCode ?? '—'}'),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    prettifyLabel(staff!.staffType),
+                                    style: theme.textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.badge_outlined, size: 32),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            InfoRow(label: 'Email', value: staff.email ?? '—'),
+                            InfoRow(label: 'Employee code', value: staff.employeeCode ?? '—'),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
     );

@@ -5,6 +5,7 @@ import '../api/teacher_errors.dart';
 import '../app/teacher_app_controller.dart';
 import '../classes/teacher_class_models.dart';
 import '../classes/teacher_student_models.dart';
+import 'teacher_widgets.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({required this.controller, required this.clazz, super.key});
@@ -49,6 +50,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> _send() async {
+    if (_title.text.trim().isEmpty || _body.text.trim().isEmpty) {
+      setState(() => _error = 'Add a title and a message before sending.');
+      return;
+    }
     setState(() {
       _sending = true;
       _error = null;
@@ -68,6 +73,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
       );
       _title.clear();
       _body.clear();
+      setState(() {
+        _urgent = false;
+        _target = null;
+      });
     } on TeacherUnauthorized {
       await widget.controller.logout();
     } on TeacherNotFound {
@@ -81,15 +90,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text('Message · ${widget.clazz.displayLabel}')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text(
+            _target == null
+                ? 'This message goes to the guardians of the entire class.'
+                : 'This message goes to the guardians of ${_target!.displayName}.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
           DropdownButtonFormField<TeacherStudent?>(
             // ignore: deprecated_member_use
             value: _target,
-            decoration: const InputDecoration(labelText: 'Recipient'),
+            decoration: const InputDecoration(
+              labelText: 'Recipient',
+              prefixIcon: Icon(Icons.group_outlined),
+            ),
             items: [
               const DropdownMenuItem(value: null, child: Text('Entire class')),
               for (final s in _students)
@@ -97,23 +120,45 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ],
             onChanged: (v) => setState(() => _target = v),
           ),
-          TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _title,
+            decoration: const InputDecoration(
+              labelText: 'Title',
+              prefixIcon: Icon(Icons.title),
+            ),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _body,
             decoration: const InputDecoration(labelText: 'Message'),
-            maxLines: 4,
+            maxLines: 5,
           ),
-          SwitchListTile(
-            title: const Text('Urgent'),
-            value: _urgent,
-            onChanged: (v) => setState(() => _urgent = v),
+          const SizedBox(height: 8),
+          Card(
+            color: _urgent ? scheme.errorContainer : null,
+            child: SwitchListTile(
+              title: const Text('Mark as urgent'),
+              subtitle: const Text('Urgent messages stand out to guardians'),
+              value: _urgent,
+              onChanged: (v) => setState(() => _urgent = v),
+            ),
           ),
-          if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          FilledButton(
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
             onPressed: _sending ? null : _send,
-            child: _sending
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Send'),
+            icon: _sending
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_outlined),
+            label: Text(_sending ? 'Sending…' : 'Send message'),
           ),
         ],
       ),

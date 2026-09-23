@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
 import 'guardian_form_screen.dart';
 
 class GuardianDetailScreen extends StatefulWidget {
@@ -53,24 +54,55 @@ class _GuardianDetailScreenState extends State<GuardianDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final guardian = _guardian;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Guardian'),
+        title: Text(guardian?.displayName ?? 'Guardian'),
         actions: [
-          if (_guardian != null) IconButton(onPressed: _edit, icon: const Icon(Icons.edit)),
+          if (guardian != null)
+            IconButton(onPressed: _edit, icon: const Icon(Icons.edit), tooltip: 'Edit'),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? ErrorRetry(message: _error!, onRetry: _load)
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text(_guardian!.displayName, style: Theme.of(context).textTheme.headlineSmall),
-                    Text('Status: ${_guardian!.status}'),
-                    Text('Phone: ${_guardian!.phoneE164 ?? '—'}'),
-                    Text('Email: ${_guardian!.email ?? '—'}'),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    guardian!.displayName,
+                                    style: theme.textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                StatusChip(status: guardian.status),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            InfoRow(label: 'Phone', value: guardian.phoneE164 ?? '—'),
+                            InfoRow(label: 'Email', value: guardian.email ?? '—'),
+                            InfoRow(
+                              label: 'Parent app',
+                              value: guardian.userId == null
+                                  ? 'No login yet'
+                                  : 'Login linked',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
     );

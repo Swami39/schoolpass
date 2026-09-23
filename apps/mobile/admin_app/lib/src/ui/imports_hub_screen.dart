@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../app/admin_dependencies.dart';
 import '../imports/admin_imports_api.dart';
+import 'admin_widgets.dart';
+import 'format.dart';
 
 class ImportsHubScreen extends StatefulWidget {
   const ImportsHubScreen({required this.deps, super.key});
@@ -63,12 +65,14 @@ academic_year_code,academic_year_name,year_starts_on,year_ends_on,class_code,cla
       final header = await widget.deps.importsApi.fetchTemplateHeader(_importType);
       await Clipboard.setData(ClipboardData(text: header));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Template header copied')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template header copied to clipboard')),
+        );
       }
-    } catch (e) {
-      setState(() => _error = e.toString());
+    } catch (_) {
+      setState(() => _error = 'Could not fetch the template. Check your connection and try again.');
     } finally {
-      setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -111,7 +115,7 @@ academic_year_code,academic_year_name,year_starts_on,year_ends_on,class_code,cla
 
   Future<void> _validate() async {
     if (_bytes == null) {
-      setState(() => _error = 'Paste a CSV first');
+      setState(() => _error = 'Paste a CSV first, or load the sample.');
       return;
     }
     setState(() {
@@ -125,10 +129,10 @@ academic_year_code,academic_year_name,year_starts_on,year_ends_on,class_code,cla
         filename: _filename ?? 'import.csv',
       );
       setState(() => _validation = result);
-    } catch (e) {
-      setState(() => _error = e.toString());
+    } catch (_) {
+      setState(() => _error = 'Could not validate the CSV. Check your connection and try again.');
     } finally {
-      setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -148,20 +152,23 @@ academic_year_code,academic_year_name,year_starts_on,year_ends_on,class_code,cla
         contentDigest: validation.contentDigest,
       );
       setState(() => _applyResult = result);
-    } catch (e) {
-      setState(() => _error = e.toString());
+    } catch (_) {
+      setState(() => _error = 'Could not apply the import. Check your connection and try again.');
     } finally {
-      setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('School data import')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const SectionHeader(title: '1 · What are you importing?'),
+          const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             initialValue: _importType,
             decoration: const InputDecoration(labelText: 'Import type'),
@@ -169,7 +176,11 @@ academic_year_code,academic_year_name,year_starts_on,year_ends_on,class_code,cla
                 .map(
                   (t) => DropdownMenuItem(
                     value: t,
-                    child: Text(t == 'school_roster' ? 'School roster (recommended)' : t),
+                    child: Text(
+                      t == 'school_roster'
+                          ? 'School roster (recommended)'
+                          : prettifyLabel(t),
+                    ),
                   ),
                 )
                 .toList(),
@@ -182,50 +193,165 @@ academic_year_code,academic_year_name,year_starts_on,year_ends_on,class_code,cla
                     }),
           ),
           const SizedBox(height: 8),
-          Text(_typeHelp),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _loadTemplate,
-            icon: const Icon(Icons.download),
-            label: const Text('Copy template header'),
+          Text(
+            _typeHelp,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _pasteCsv,
-            icon: const Icon(Icons.upload_file),
-            label: const Text('Paste CSV'),
+          const SizedBox(height: 16),
+          const SectionHeader(title: '2 · Get your CSV ready'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _loadTemplate,
+                icon: const Icon(Icons.content_copy_outlined),
+                label: const Text('Copy template header'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _pasteCsv,
+                icon: const Icon(Icons.paste_outlined),
+                label: const Text('Paste CSV'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _useSample,
+                icon: const Icon(Icons.dataset_outlined),
+                label: const Text('Try the sample'),
+              ),
+            ],
           ),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _useSample,
-            icon: const Icon(Icons.dataset),
-            label: const Text('Load sample school roster'),
+          if (_filename != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.attach_file, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Expanded(child: Text(_filename!)),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          const SectionHeader(title: '3 · Validate'),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _busy ? null : _validate,
+            icon: _busy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.fact_check_outlined),
+            label: const Text('Validate CSV'),
           ),
-          if (_filename != null) Text('File: $_filename'),
-          const SizedBox(height: 12),
-          FilledButton(onPressed: _busy ? null : _validate, child: const Text('Validate')),
           if (_validation != null) ...[
             const SizedBox(height: 16),
-            Text('Rows: ${_validation!.rowCount}, valid: ${_validation!.validRowCount}'),
-            for (final err in _validation!.errors)
-              Text('Row ${err.rowNumber}: ${err.message}', style: const TextStyle(color: Colors.red)),
-            if (_validation!.errors.isEmpty)
-              FilledButton(onPressed: _busy ? null : _apply, child: const Text('Confirm import')),
-          ],
-          if (_applyResult != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(
-                'Imported ${_applyResult!.appliedCount} row(s), skipped ${_applyResult!.skippedCount}. '
-                'Parents can sign in with their email and the school directory password.',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+            const SectionHeader(title: '4 · Review & apply'),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _countStat(
+                            theme,
+                            '${_validation!.rowCount}',
+                            'rows',
+                          ),
+                        ),
+                        Expanded(
+                          child: _countStat(
+                            theme,
+                            '${_validation!.validRowCount}',
+                            'valid',
+                          ),
+                        ),
+                        Expanded(
+                          child: _countStat(
+                            theme,
+                            '${_validation!.errors.length}',
+                            'errors',
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_validation!.errors.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      for (final err in _validation!.errors)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.error_outline, size: 16, color: theme.colorScheme.error),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Row ${err.rowNumber}: ${err.message}',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 12),
+            if (_validation!.errors.isEmpty)
+              FilledButton.icon(
+                onPressed: _busy ? null : _apply,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Confirm import'),
+              )
+            else
+              Text(
+                'Fix the errors above and validate again before importing.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+          if (_applyResult != null) ...[
+            const SizedBox(height: 16),
+            SuccessBanner(
+              message:
+                  'Imported ${_applyResult!.appliedCount} row(s), skipped ${_applyResult!.skippedCount}. '
+                  'Parents can sign in with their email and the school directory password.',
             ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 16),
+            ErrorBanner(message: _error!),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _countStat(ThemeData theme, String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

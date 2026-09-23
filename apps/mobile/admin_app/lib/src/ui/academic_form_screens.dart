@@ -4,6 +4,7 @@ import '../academic/academic_models.dart';
 import '../academic/admin_academic_api.dart';
 import '../app/admin_dependencies.dart';
 import '../people/people_models.dart';
+import 'admin_widgets.dart';
 
 class AcademicYearFormScreen extends StatefulWidget {
   const AcademicYearFormScreen({required this.deps, super.key});
@@ -66,12 +67,15 @@ class _AcademicYearFormScreenState extends State<AcademicYearFormScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           TextField(controller: _code, decoration: const InputDecoration(labelText: 'Code (e.g. 2026-27)')),
+          const SizedBox(height: 12),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
+          const SizedBox(height: 12),
           TextField(controller: _startsOn, decoration: const InputDecoration(labelText: 'Starts on (YYYY-MM-DD)')),
+          const SizedBox(height: 12),
           TextField(controller: _endsOn, decoration: const InputDecoration(labelText: 'Ends on (YYYY-MM-DD)')),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -153,20 +157,24 @@ class _SchoolClassFormScreenState extends State<SchoolClassFormScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           TextField(controller: _code, decoration: const InputDecoration(labelText: 'Code (e.g. 10)')),
+          const SizedBox(height: 12),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name (e.g. Class 10)')),
+          const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Also create a section'),
             value: _createSection,
             onChanged: _submitting ? null : (v) => setState(() => _createSection = v),
           ),
-          if (_createSection)
+          if (_createSection) ...[
+            const SizedBox(height: 4),
             TextField(
               controller: _sectionName,
               decoration: const InputDecoration(labelText: 'Section name (e.g. A)'),
             ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -263,17 +271,18 @@ class _SectionFormScreenState extends State<SectionFormScreen> {
                       .map(
                         (c) => DropdownMenuItem(
                           value: c,
-                          child: Text('${c.name} (${c.code}) — ${c.id}'),
+                          child: Text('${c.name} (${c.code})'),
                         ),
                       )
                       .toList(),
                   onChanged: _submitting ? null : (v) => setState(() => _clazz = v),
                   decoration: const InputDecoration(labelText: 'Class'),
                 ),
+                const SizedBox(height: 12),
                 TextField(controller: _name, decoration: const InputDecoration(labelText: 'Section name')),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ErrorBanner(message: _error!),
                 ],
                 const SizedBox(height: 24),
                 FilledButton(
@@ -341,10 +350,11 @@ class _SubjectFormScreenState extends State<SubjectFormScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           TextField(controller: _code, decoration: const InputDecoration(labelText: 'Code (e.g. MATH)')),
+          const SizedBox(height: 12),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -475,48 +485,53 @@ class _TeacherAssignmentFormScreenState extends State<TeacherAssignmentFormScree
                       .map(
                         (t) => DropdownMenuItem(
                           value: t,
-                          child: Text('${t.email ?? t.employeeCode ?? t.id} (${t.id})'),
+                          child: Text(t.email ?? t.employeeCode ?? 'Teacher'),
                         ),
                       )
                       .toList(),
                   onChanged: _submitting ? null : (v) => setState(() => _teacher = v),
                   decoration: const InputDecoration(labelText: 'Teacher'),
                 ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<AcademicYearItem>(
                   initialValue: _year,
                   items: _years
-                      .map((y) => DropdownMenuItem(value: y, child: Text('${y.name} (${y.id})')))
+                      .map((y) => DropdownMenuItem(value: y, child: Text(y.name)))
                       .toList(),
                   onChanged: _submitting ? null : (v) => setState(() => _year = v),
                   decoration: const InputDecoration(labelText: 'Academic year'),
                 ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<SchoolClassItem>(
                   initialValue: _clazz,
                   items: _classes
-                      .map((c) => DropdownMenuItem(value: c, child: Text('${c.name} (${c.id})')))
+                      .map((c) => DropdownMenuItem(value: c, child: Text('${c.name} (${c.code})')))
                       .toList(),
                   onChanged: _submitting ? null : _onClassChanged,
                   decoration: const InputDecoration(labelText: 'Class'),
                 ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<SectionItem>(
                   initialValue: _section,
                   items: _sections
-                      .map((s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.id})')))
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
                       .toList(),
                   onChanged: _submitting ? null : (v) => setState(() => _section = v),
                   decoration: const InputDecoration(labelText: 'Section'),
                 ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<SubjectItem>(
                   initialValue: _subject,
                   items: [
                     const DropdownMenuItem<SubjectItem>(value: null, child: Text('No subject')),
                     ..._subjects.map(
-                      (s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.id})')),
+                      (s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.code})')),
                     ),
                   ],
                   onChanged: _submitting ? null : (v) => setState(() => _subject = v),
                   decoration: const InputDecoration(labelText: 'Subject (optional)'),
                 ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _role,
                   items: const [
@@ -528,7 +543,7 @@ class _TeacherAssignmentFormScreenState extends State<TeacherAssignmentFormScree
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ErrorBanner(message: _error!),
                 ],
                 const SizedBox(height: 24),
                 FilledButton(

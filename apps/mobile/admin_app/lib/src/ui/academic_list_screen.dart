@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../academic/admin_academic_api.dart';
 import '../app/admin_dependencies.dart';
+import 'admin_widgets.dart';
 
 class AcademicListScreen<T> extends StatefulWidget {
   const AcademicListScreen({
@@ -79,45 +80,39 @@ class _AcademicListScreenState<T> extends State<AcademicListScreen<T>> {
       ),
       floatingActionButton: widget.onCreate == null
           ? null
-          : FloatingActionButton(
+          : FloatingActionButton.extended(
               onPressed: _create,
-              child: const Icon(Icons.add),
+              icon: const Icon(Icons.add),
+              label: const Text('Add'),
             ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 12),
-                      FilledButton(onPressed: _load, child: const Text('Retry')),
-                    ],
-                  ),
-                )
+              ? ErrorRetry(message: _error!, onRetry: _load)
               : _items.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('No records yet.'),
-                          if (widget.onCreate != null) ...[
-                            const SizedBox(height: 12),
-                            FilledButton(onPressed: _create, child: const Text('Create')),
-                          ],
-                        ],
-                      ),
+                  ? EmptyState(
+                      icon: Icons.menu_book_outlined,
+                      title: 'No ${widget.title.toLowerCase()} yet',
+                      subtitle: widget.onCreate != null
+                          ? 'Create the first one to get started.'
+                          : null,
+                      actionLabel: widget.onCreate != null ? 'Create' : null,
+                      onAction: widget.onCreate != null ? _create : null,
                     )
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                         itemCount: _items.length,
                         itemBuilder: (context, index) {
                           final item = _items[index];
-                          return ListTile(
-                            title: Text(widget.label(item)),
-                            subtitle: widget.subtitle == null ? null : Text(widget.subtitle!(item)),
+                          final subtitle = widget.subtitle?.call(item);
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              title: Text(widget.label(item)),
+                              subtitle: subtitle == null ? null : Text(subtitle),
+                            ),
                           );
                         },
                       ),
