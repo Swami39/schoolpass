@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:attendant_nfc/attendant_nfc.dart';
@@ -7,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../api/attendant_errors.dart';
 import '../app/attendant_app_controller.dart';
+import '../gps/trip_gps_tracker.dart';
 import '../trips/trip_models.dart';
 
 /// Transport NFC boarding with offline outbox (manual UID until platform NFC is wired).
@@ -24,6 +26,7 @@ class _TripScanScreenState extends State<TripScanScreen> {
   final _uid = TextEditingController();
   NfcOutboxStore? _store;
   NfcEventService? _service;
+  TripGpsTracker? _gpsTracker;
   String? _error;
   String? _status;
   bool _booting = true;
@@ -64,11 +67,22 @@ class _TripScanScreenState extends State<TripScanScreen> {
         store.close();
         return;
       }
+      final gpsTracker = TripGpsTracker(
+        tripId: widget.trip.id,
+        clientDeviceId: deviceId,
+        syncClient: widget.controller.deps.gpsSyncClient,
+        onAuthFailure: () {
+          widget.controller.logout();
+        },
+      );
       setState(() {
         _store = store;
         _service = service;
+        _gpsTracker = gpsTracker;
         _booting = false;
       });
+      // Non-blocking: permission prompts and first fix arrive async.
+      unawaited(gpsTracker.start());
     } on AttendantUnauthorized {
       await widget.controller.logout();
     } catch (_) {
@@ -83,6 +97,13 @@ class _TripScanScreenState extends State<TripScanScreen> {
   @override
   void dispose() {
     _uid.dispose();
+    final tracker = _gpsTracker;
+    _gpsTracker = null;
+    if (tracker != null) {
+      // stop() does a best-effort final flush; dispose() releases resources.
+      unawaited(tracker.stop());
+      tracker.dispose();
+    }
     _store?.close();
     super.dispose();
   }
@@ -126,6 +147,13 @@ class _TripScanScreenState extends State<TripScanScreen> {
                 children: [
                   Text('Trip ${widget.trip.id}', style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 8),
+                  if (_gpsTracker != null) ...[
+                    ValueListenableBuilder<GpsTrackerSnapshot>(
+                      valueListenable: _gpsTracker!.snapshot,
+                      builder: (context, snap, _) => _GpsStatusCard(snapshot: snap),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   SegmentedButton<NfcEventType>(
                     segments: const [
                       ButtonSegment(value: NfcEventType.boarding, label: Text('Boarding')),
@@ -148,6 +176,52 @@ class _TripScanScreenState extends State<TripScanScreen> {
                     Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// Live status of trip GPS sharing shown on the scan screen.
+class _GpsStatusCard extends StatelessWidget {
+  const _GpsStatusCard({required this.snapshot});
+
+  final GpsTrackerSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    IconData icon;
+    String text;
+    var warning = false;
+    switch (snapshot.phase) {
+      case GpsTrackerPhase.starting:
+        icon = Icons.gps_not_fixed;
+        text = 'GPS: starting…';
+      case GpsTrackerPhase.tracking:
+        icon = Icons.gps_fixed;
+        text = 'GPS: sharing bus location · ${snapshot.syncedCount} sent';
+        if (snapshot.pendingCount > 0) {
+          text += ' · ${snapshot.pendingCount} pending';
+        }
+      case GpsTrackerPhase.permissionDenied:
+      case GpsTrackerPhase.serviceDisabled:
+      case GpsTrackerPhase.error:
+        icon = Icons.gps_off;
+        text = snapshot.message ?? 'GPS unavailable.';
+        warning = true;
+      case GpsTrackerPhase.stopped:
+        icon = Icons.gps_off;
+        text = 'GPS: stopped.';
+    }
+    return Card(
+      child: ListTile(
+        leading: Icon(icon, color: warning ? theme.colorScheme.error : null),
+        title: Text(text, style: theme.textTheme.bodyMedium),
+        subtitle: snapshot.lastFixAt != null && snapshot.phase == GpsTrackerPhase.tracking
+            ? Text(
+                'Last fix ${snapshot.lastFixAt!.toLocal().toString().split('.').first}',
+              )
+            : null,
       ),
     );
   }

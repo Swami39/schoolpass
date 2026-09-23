@@ -1,5 +1,6 @@
 import '../auth/auth_api.dart';
 import '../auth/auth_repository.dart';
+import '../gps/gps_sync_client.dart';
 import '../http/authenticated_http_client.dart';
 import '../nfc/transport_nfc_http_client.dart';
 import '../session/token_store.dart';
@@ -47,4 +48,5 @@ class AttendantDependencies {
   AttendantTripsApi get tripsApi => AttendantTripsApi(http);
   AttendantDeviceApi get deviceApi => AttendantDeviceApi(http);
   HttpTransportNfcSyncClient get nfcSyncClient => HttpTransportNfcSyncClient(http);
+  HttpGpsSyncClient get gpsSyncClient => HttpGpsSyncClient(http);
 }
