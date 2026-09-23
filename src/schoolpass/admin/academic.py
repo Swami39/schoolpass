@@ -381,13 +381,15 @@ async def update_subject(
     return row
 
 
-async def list_teacher_assignments(session: AsyncSession, ctx: TenantContext) -> list[TeacherSectionAssignment]:
+async def list_teacher_assignments(
+    session: AsyncSession, ctx: TenantContext, *, section_id: UUID | None = None
+) -> list[TeacherSectionAssignment]:
     tenant_id = _tenant_id(ctx)
-    result = await session.execute(
-        select(TeacherSectionAssignment)
-        .where(TeacherSectionAssignment.tenant_id == tenant_id)
-        .order_by(TeacherSectionAssignment.created_at.desc())
-    )
+    stmt = select(TeacherSectionAssignment).where(TeacherSectionAssignment.tenant_id == tenant_id)
+    if section_id is not None:
+        await _get_section(session, ctx, section_id)
+        stmt = stmt.where(TeacherSectionAssignment.section_id == section_id)
+    result = await session.execute(stmt.order_by(TeacherSectionAssignment.created_at.desc()))
     return list(result.scalars().all())
 
 

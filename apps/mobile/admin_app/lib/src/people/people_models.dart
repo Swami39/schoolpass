@@ -4,18 +4,21 @@ class StaffListItem {
     required this.staffType,
     this.employeeCode,
     this.email,
+    this.userId,
   });
 
   final String id;
   final String staffType;
   final String? employeeCode;
   final String? email;
+  final String? userId;
 
   factory StaffListItem.fromJson(Map<String, dynamic> json) => StaffListItem(
         id: json['id'] as String,
         staffType: json['staff_type'] as String,
         employeeCode: json['employee_code'] as String?,
         email: json['email'] as String?,
+        userId: json['user_id'] as String?,
       );
 }
 
@@ -23,12 +26,10 @@ class StaffDetail extends StaffListItem {
   const StaffDetail({
     required super.id,
     required super.staffType,
-    required this.userId,
+    required super.userId,
     super.employeeCode,
     super.email,
   });
-
-  final String userId;
 
   factory StaffDetail.fromJson(Map<String, dynamic> json) => StaffDetail(
         id: json['id'] as String,
@@ -107,6 +108,7 @@ class EnrollmentDetail {
   const EnrollmentDetail({
     required this.id,
     required this.status,
+    required this.studentId,
     required this.sectionId,
     required this.classId,
     required this.academicYearId,
@@ -116,6 +118,7 @@ class EnrollmentDetail {
 
   final String id;
   final String status;
+  final String studentId;
   final String sectionId;
   final String classId;
   final String academicYearId;
@@ -125,6 +128,7 @@ class EnrollmentDetail {
   factory EnrollmentDetail.fromJson(Map<String, dynamic> json) => EnrollmentDetail(
         id: json['id'] as String,
         status: json['status'] as String,
+        studentId: json['student_id'] as String? ?? '',
         sectionId: json['section_id'] as String,
         classId: json['class_id'] as String,
         academicYearId: json['academic_year_id'] as String,

@@ -15,10 +15,11 @@ class AdminPeopleApi {
 
   final AuthenticatedHttpClient _http;
 
-  Future<List<StaffListItem>> fetchStaff({String? search, String? staffType}) async {
+  Future<List<StaffListItem>> fetchStaff({String? search, String? staffType, int? limit}) async {
     final query = <String, String>{};
     if (search != null && search.isNotEmpty) query['search'] = search;
     if (staffType != null && staffType.isNotEmpty) query['staff_type'] = staffType;
+    if (limit != null) query['limit'] = limit.toString();
     return _list(_path('api/v1/admin/staff', query), StaffListItem.fromJson);
   }
 
@@ -30,10 +31,11 @@ class AdminPeopleApi {
   Future<StaffDetail> updateStaff(String staffId, Map<String, dynamic> body) =>
       _mutate('PATCH', 'api/v1/admin/staff/$staffId', body, StaffDetail.fromJson);
 
-  Future<List<StudentDetail>> fetchStudents({String? search, String? status}) async {
+  Future<List<StudentDetail>> fetchStudents({String? search, String? status, int? limit}) async {
     final query = <String, String>{};
     if (search != null && search.isNotEmpty) query['search'] = search;
     if (status != null && status.isNotEmpty) query['status'] = status;
+    if (limit != null) query['limit'] = limit.toString();
     return _list(_path('api/v1/admin/students', query), StudentDetail.fromJson);
   }
 
@@ -46,7 +48,11 @@ class AdminPeopleApi {
   Future<StudentDetail> updateStudent(String studentId, Map<String, dynamic> body) =>
       _mutate('PATCH', 'api/v1/admin/students/$studentId', body, StudentDetail.fromJson);
 
-  Future<List<GuardianDetail>> fetchGuardians() => _list('api/v1/admin/guardians', GuardianDetail.fromJson);
+  Future<List<GuardianDetail>> fetchGuardians({int? limit}) {
+    final query = <String, String>{};
+    if (limit != null) query['limit'] = limit.toString();
+    return _list(_path('api/v1/admin/guardians', query), GuardianDetail.fromJson);
+  }
 
   Future<GuardianDetail> fetchGuardian(String guardianId) =>
       _getObject('api/v1/admin/guardians/$guardianId', GuardianDetail.fromJson);
@@ -56,6 +62,14 @@ class AdminPeopleApi {
 
   Future<GuardianDetail> updateGuardian(String guardianId, Map<String, dynamic> body) =>
       _mutate('PATCH', 'api/v1/admin/guardians/$guardianId', body, GuardianDetail.fromJson);
+
+  Future<List<EnrollmentDetail>> fetchEnrollments({String? sectionId, String? status, int? limit}) {
+    final query = <String, String>{};
+    if (sectionId != null && sectionId.isNotEmpty) query['section_id'] = sectionId;
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    if (limit != null) query['limit'] = limit.toString();
+    return _list(_path('api/v1/admin/enrollments', query), EnrollmentDetail.fromJson);
+  }
 
   Future<List<EnrollmentDetail>> fetchStudentEnrollments(String studentId) =>
       _list('api/v1/admin/students/$studentId/enrollments', EnrollmentDetail.fromJson);

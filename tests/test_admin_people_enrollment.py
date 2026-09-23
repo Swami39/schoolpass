@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import func, select
@@ -258,3 +259,53 @@ async def test_enrollment_move_preserves_history_and_related_records(
     assert move.status_code == 200
     still_two_rows = await client.get(f"/api/v1/admin/students/{student_id}/enrollments", headers=headers)
     assert len(still_two_rows.json()["items"]) >= 2
+
+
+async def test_list_enrollments_filter_by_section(client, admin_world, student_world) -> None:
+    headers = auth_headers(admin_world.admin_token)
+
+    created = await client.post(
+        "/api/v1/admin/enrollments",
+        headers=headers,
+        json=_enrollment_payload(student_world),
+    )
+    assert created.status_code == 200
+
+    # A second, empty section in the same class.
+    section_b = await client.post(
+        "/api/v1/admin/sections",
+        headers=headers,
+        json={"class_id": str(student_world["a_class_id"]), "name": "B"},
+    )
+    assert section_b.status_code == 200
+    section_b_id = section_b.json()["id"]
+
+    filtered = await client.get(
+        f"/api/v1/admin/enrollments?section_id={student_world['a_section_id']}",
+        headers=headers,
+    )
+    assert filtered.status_code == 200
+    items = filtered.json()["items"]
+    assert len(items) >= 1
+    assert all(item["section_id"] == str(student_world["a_section_id"]) for item in items)
+
+    empty = await client.get(
+        f"/api/v1/admin/enrollments?section_id={section_b_id}",
+        headers=headers,
+    )
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+
+    # A section from another tenant must not leak through the filter.
+    cross_tenant = await client.get(
+        f"/api/v1/admin/enrollments?section_id={student_world['b_section_id']}",
+        headers=headers,
+    )
+    assert cross_tenant.status_code == 404
+
+    # Unknown section ids are rejected, not silently ignored.
+    missing = await client.get(
+        f"/api/v1/admin/enrollments?section_id={uuid4()}",
+        headers=headers,
+    )
+    assert missing.status_code == 404

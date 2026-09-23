@@ -439,3 +439,61 @@ async def test_audit_on_academic_create(client, admin_world, db_factory) -> None
                 )
             )
     assert count and count >= 1
+
+
+async def test_list_teacher_assignments_filter_by_section(
+    client, admin_world, teacher_world, student_world
+) -> None:
+    headers = auth_headers(admin_world.admin_token)
+
+    created = await client.post(
+        "/api/v1/admin/teacher-assignments",
+        headers=headers,
+        json={
+            "teacher_user_id": str(teacher_world.other_teacher_user_id),
+            "academic_year_id": str(student_world["a_year_id"]),
+            "section_id": str(student_world["a_section_id"]),
+            "subject_id": str(teacher_world.subject_id),
+            "assignment_role": "subject_teacher",
+        },
+    )
+    assert created.status_code == 200
+
+    # A second, empty section in the same class.
+    section_b = await client.post(
+        "/api/v1/admin/sections",
+        headers=headers,
+        json={"class_id": str(student_world["a_class_id"]), "name": "B"},
+    )
+    assert section_b.status_code == 200
+    section_b_id = section_b.json()["id"]
+
+    filtered = await client.get(
+        f"/api/v1/admin/teacher-assignments?section_id={student_world['a_section_id']}",
+        headers=headers,
+    )
+    assert filtered.status_code == 200
+    items = filtered.json()["items"]
+    assert len(items) >= 1
+    assert all(item["section_id"] == str(student_world["a_section_id"]) for item in items)
+
+    empty = await client.get(
+        f"/api/v1/admin/teacher-assignments?section_id={section_b_id}",
+        headers=headers,
+    )
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+
+    # A section from another tenant must not leak through the filter.
+    cross_tenant = await client.get(
+        f"/api/v1/admin/teacher-assignments?section_id={student_world['b_section_id']}",
+        headers=headers,
+    )
+    assert cross_tenant.status_code == 404
+
+    # Unknown section ids are rejected, not silently ignored.
+    missing = await client.get(
+        f"/api/v1/admin/teacher-assignments?section_id={uuid4()}",
+        headers=headers,
+    )
+    assert missing.status_code == 404

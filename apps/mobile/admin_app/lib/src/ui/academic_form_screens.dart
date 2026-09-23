@@ -190,9 +190,10 @@ class _SchoolClassFormScreenState extends State<SchoolClassFormScreen> {
 }
 
 class SectionFormScreen extends StatefulWidget {
-  const SectionFormScreen({required this.deps, super.key});
+  const SectionFormScreen({required this.deps, this.initialClassId, super.key});
 
   final AdminDependencies deps;
+  final String? initialClassId;
 
   @override
   State<SectionFormScreen> createState() => _SectionFormScreenState();
@@ -215,7 +216,13 @@ class _SectionFormScreenState extends State<SectionFormScreen> {
   Future<void> _bootstrap() async {
     try {
       _classes = await widget.deps.academicApi.fetchClasses();
-      _clazz = _classes.isEmpty ? null : _classes.first;
+      SchoolClassItem? preselected;
+      if (widget.initialClassId != null) {
+        for (final c in _classes) {
+          if (c.id == widget.initialClassId) preselected = c;
+        }
+      }
+      _clazz = preselected ?? (_classes.isEmpty ? null : _classes.first);
     } catch (_) {
       _error = 'Could not load classes.';
     } finally {
@@ -370,9 +377,16 @@ class _SubjectFormScreenState extends State<SubjectFormScreen> {
 }
 
 class TeacherAssignmentFormScreen extends StatefulWidget {
-  const TeacherAssignmentFormScreen({required this.deps, super.key});
+  const TeacherAssignmentFormScreen({
+    required this.deps,
+    this.initialClassId,
+    this.initialSectionId,
+    super.key,
+  });
 
   final AdminDependencies deps;
+  final String? initialClassId;
+  final String? initialSectionId;
 
   @override
   State<TeacherAssignmentFormScreen> createState() => _TeacherAssignmentFormScreenState();
@@ -410,10 +424,10 @@ class _TeacherAssignmentFormScreenState extends State<TeacherAssignmentFormScree
       _subjects = await widget.deps.academicApi.fetchSubjects();
       _teacher = _teachers.isEmpty ? null : _teachers.first;
       _year = _years.isEmpty ? null : _years.first;
-      _clazz = _classes.isEmpty ? null : _classes.first;
+      _clazz = _findClass(widget.initialClassId) ?? (_classes.isEmpty ? null : _classes.first);
       if (_clazz != null) {
         _sections = await widget.deps.academicApi.fetchSections(classId: _clazz!.id);
-        _section = _sections.isEmpty ? null : _sections.first;
+        _section = _findSection(widget.initialSectionId) ?? (_sections.isEmpty ? null : _sections.first);
       }
       _subject = _subjects.isEmpty ? null : _subjects.first;
     } catch (_) {
@@ -421,6 +435,22 @@ class _TeacherAssignmentFormScreenState extends State<TeacherAssignmentFormScree
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  SchoolClassItem? _findClass(String? id) {
+    if (id == null) return null;
+    for (final c in _classes) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  SectionItem? _findSection(String? id) {
+    if (id == null) return null;
+    for (final s in _sections) {
+      if (s.id == id) return s;
+    }
+    return null;
   }
 
   Future<void> _onClassChanged(SchoolClassItem? value) async {
@@ -443,15 +473,20 @@ class _TeacherAssignmentFormScreenState extends State<TeacherAssignmentFormScree
       setState(() => _error = 'Teacher, academic year, and section are required.');
       return;
     }
-    // Staff list items do not expose user_id; fetch detail.
+    // Staff list items usually carry user_id already; fall back to a detail fetch.
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
-      final detail = await widget.deps.peopleApi.fetchStaffMember(_teacher!.id);
+      final teacherUserId = _teacher!.userId ??
+          (await widget.deps.peopleApi.fetchStaffMember(_teacher!.id)).userId;
+      if (teacherUserId == null) {
+        setState(() => _error = 'Could not resolve this teacher\u2019s login id.');
+        return;
+      }
       await widget.deps.academicApi.createTeacherAssignment({
-        'teacher_user_id': detail.userId,
+        'teacher_user_id': teacherUserId,
         'academic_year_id': _year!.id,
         'section_id': _section!.id,
         if (_subject != null) 'subject_id': _subject!.id,

@@ -9,16 +9,11 @@ import 'admin_dependencies.dart';
 enum AdminAppPhase { booting, signedOut, signedIn }
 
 enum AdminSection {
-  dashboard,
-  school,
-  academic,
-  teachers,
-  students,
-  guardians,
-  cards,
-  transport,
-  rfid,
+  setup,
+  structure,
+  directory,
   operations,
+  imports,
   audit,
 }
 
@@ -28,7 +23,7 @@ class AdminAppController extends ChangeNotifier {
   final AdminDependencies deps;
 
   AdminAppPhase phase = AdminAppPhase.booting;
-  AdminSection section = AdminSection.dashboard;
+  AdminSection section = AdminSection.setup;
   SchoolProfile? schoolProfile;
   bool loadingProfile = false;
   bool savingProfile = false;
@@ -72,7 +67,7 @@ class AdminAppController extends ChangeNotifier {
         tenantId: deps.tenantId,
       );
       phase = AdminAppPhase.signedIn;
-      section = AdminSection.dashboard;
+      section = AdminSection.setup;
       await _registerPushTokenAfterLogin();
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
@@ -101,7 +96,7 @@ class AdminAppController extends ChangeNotifier {
       );
       pendingMfaToken = null;
       phase = AdminAppPhase.signedIn;
-      section = AdminSection.dashboard;
+      section = AdminSection.setup;
       await _registerPushTokenAfterLogin();
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
@@ -123,7 +118,7 @@ class AdminAppController extends ChangeNotifier {
     await unregisterPushToken(_pushSetup);
     await deps.authRepository.logout();
     schoolProfile = null;
-    section = AdminSection.dashboard;
+    section = AdminSection.setup;
     phase = AdminAppPhase.signedOut;
     notifyListeners();
   }

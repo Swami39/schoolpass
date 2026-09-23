@@ -27,8 +27,12 @@ class AdminAcademicApi {
 
   Future<List<SubjectItem>> fetchSubjects() => _list('api/v1/admin/subjects', SubjectItem.fromJson);
 
-  Future<List<TeacherAssignmentItem>> fetchTeacherAssignments() =>
-      _list('api/v1/admin/teacher-assignments', TeacherAssignmentItem.fromJson);
+  Future<List<TeacherAssignmentItem>> fetchTeacherAssignments({String? sectionId}) {
+    final path = sectionId == null
+        ? 'api/v1/admin/teacher-assignments'
+        : 'api/v1/admin/teacher-assignments?section_id=$sectionId';
+    return _list(path, TeacherAssignmentItem.fromJson);
+  }
 
   Future<AcademicYearItem> createAcademicYear(Map<String, dynamic> body) =>
       _mutate('api/v1/admin/academic-years', body, AcademicYearItem.fromJson);

@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../app/admin_app_controller.dart';
 import '../app/admin_dependencies.dart';
-import 'academic_hub_screen.dart';
 import 'admin_widgets.dart';
 import 'imports_hub_screen.dart';
 import 'operations_hub_screen.dart';
 import 'people_hub_screen.dart';
-import 'school_profile_screen.dart';
-import 'student_form_screen.dart';
+import 'school_structure_screen.dart';
+import 'setup_checklist_screen.dart';
 
+/// The redesigned admin home: six workflow areas instead of eleven
+/// feature silos. Setup (the guided checklist) is the default screen.
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({required this.controller, required this.deps, super.key});
 
@@ -17,31 +18,30 @@ class AdminHomeScreen extends StatelessWidget {
   final AdminDependencies deps;
 
   static const _sections = <AdminSection, String>{
-    AdminSection.dashboard: 'Dashboard',
-    AdminSection.school: 'School',
-    AdminSection.academic: 'Academic',
-    AdminSection.teachers: 'Teachers',
-    AdminSection.students: 'Students',
-    AdminSection.guardians: 'Guardians',
-    AdminSection.cards: 'Cards',
-    AdminSection.transport: 'Transport',
-    AdminSection.rfid: 'RFID',
+    AdminSection.setup: 'Setup',
+    AdminSection.structure: 'Classes & sections',
+    AdminSection.directory: 'Directory',
     AdminSection.operations: 'Operations',
+    AdminSection.imports: 'Imports',
     AdminSection.audit: 'Audit',
   };
 
   static const _sectionIcons = <AdminSection, IconData>{
-    AdminSection.dashboard: Icons.dashboard_outlined,
-    AdminSection.school: Icons.home_work_outlined,
-    AdminSection.academic: Icons.menu_book_outlined,
-    AdminSection.teachers: Icons.badge_outlined,
-    AdminSection.students: Icons.school_outlined,
-    AdminSection.guardians: Icons.family_restroom_outlined,
-    AdminSection.cards: Icons.credit_card_outlined,
-    AdminSection.transport: Icons.directions_bus_outlined,
-    AdminSection.rfid: Icons.sensors_outlined,
+    AdminSection.setup: Icons.checklist_outlined,
+    AdminSection.structure: Icons.account_tree_outlined,
+    AdminSection.directory: Icons.groups_outlined,
     AdminSection.operations: Icons.settings_outlined,
+    AdminSection.imports: Icons.upload_file_outlined,
     AdminSection.audit: Icons.history_outlined,
+  };
+
+  static const _sectionDescriptions = <AdminSection, String>{
+    AdminSection.setup: 'Guided steps to get the school running',
+    AdminSection.structure: 'Years, classes, sections, and their people',
+    AdminSection.directory: 'Everyone: staff, students, and parents',
+    AdminSection.operations: 'Buses, trips, cards, RFID readers, and events',
+    AdminSection.imports: 'Validate and apply CSV onboarding data',
+    AdminSection.audit: 'What changed and when',
   };
 
   @override
@@ -65,7 +65,7 @@ class AdminHomeScreen extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _DrawerBrand(),
+                  const _DrawerBrand(),
                   const SizedBox(height: 8),
                   for (final entry in _sections.entries)
                     Padding(
@@ -74,6 +74,11 @@ class AdminHomeScreen extends StatelessWidget {
                         leading: Icon(_sectionIcons[entry.key]),
                         selected: controller.section == entry.key,
                         title: Text(entry.value),
+                        subtitle: Text(
+                          _sectionDescriptions[entry.key] ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         onTap: () {
                           Navigator.of(context).pop();
                           controller.selectSection(entry.key);
@@ -84,41 +89,36 @@ class AdminHomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          body: _bodyForSection(context),
+          body: _bodyForSection(),
         );
       },
     );
   }
 
-  Widget _bodyForSection(BuildContext context) {
+  Widget _bodyForSection() {
     switch (controller.section) {
-      case AdminSection.school:
-        return SchoolProfileScreen(controller: controller);
-      case AdminSection.dashboard:
-        return _DashboardPanel(controller: controller, deps: deps);
-      case AdminSection.academic:
-        return AcademicHubScreen(deps: deps);
-      case AdminSection.teachers:
-        return PeopleHubScreen.staffList(context, deps, useScaffold: false);
-      case AdminSection.students:
-        return PeopleHubScreen.studentsList(context, deps, useScaffold: false);
-      case AdminSection.guardians:
-        return PeopleHubScreen.guardiansList(context, deps, useScaffold: false);
-      case AdminSection.cards:
-      case AdminSection.transport:
-      case AdminSection.rfid:
+      case AdminSection.setup:
+        return SetupChecklistScreen(controller: controller, deps: deps);
+      case AdminSection.structure:
+        return SchoolStructureScreen(deps: deps);
+      case AdminSection.directory:
+        return PeopleHubScreen(deps: deps);
       case AdminSection.operations:
         return OperationsHubScreen(deps: deps);
-      default:
-        return _PlaceholderPanel(
-          title: _sections[controller.section] ?? 'Section',
-          message: 'This section is not available yet.',
+      case AdminSection.imports:
+        return ImportsHubScreen(deps: deps);
+      case AdminSection.audit:
+        return const _PlaceholderPanel(
+          title: 'Audit',
+          message: 'A change history view is not available in the app yet.',
         );
     }
   }
 }
 
 class _DrawerBrand extends StatelessWidget {
+  const _DrawerBrand();
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -159,101 +159,6 @@ class _DrawerBrand extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DashboardPanel extends StatelessWidget {
-  const _DashboardPanel({required this.controller, required this.deps});
-
-  final AdminAppController controller;
-  final AdminDependencies deps;
-
-  void _openPeople(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('People')),
-          body: PeopleHubScreen(deps: deps),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text('Get the school ready', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text(
-          'Add students with their parents, or import the whole school from one CSV.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 16),
-        const SectionHeader(title: 'Quick actions'),
-        const SizedBox(height: 8),
-        AdminSectionCard(
-          icon: Icons.person_add_alt_outlined,
-          title: 'Add a student',
-          subtitle: 'Create the child, class enrollment, and parent login together',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => StudentFormScreen(deps: deps)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        AdminSectionCard(
-          icon: Icons.upload_file_outlined,
-          title: 'Bulk import school data',
-          subtitle: 'One CSV for classes, teachers, students, and parent links',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ImportsHubScreen(deps: deps)),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'All sections'),
-        const SizedBox(height: 8),
-        AdminSectionCard(
-          icon: Icons.groups_outlined,
-          title: 'People',
-          subtitle: 'Students, guardians, and staff',
-          onTap: () => _openPeople(context),
-        ),
-        const SizedBox(height: 12),
-        AdminSectionCard(
-          icon: Icons.menu_book_outlined,
-          title: 'Academic',
-          subtitle: 'Years, classes, sections, and subjects',
-          onTap: () => controller.selectSection(AdminSection.academic),
-        ),
-        const SizedBox(height: 12),
-        AdminSectionCard(
-          icon: Icons.settings_outlined,
-          title: 'Operations',
-          subtitle: 'Buses, trips, cards, RFID readers, and boarding',
-          onTap: () => controller.selectSection(AdminSection.operations),
-        ),
-        const SizedBox(height: 12),
-        AdminSectionCard(
-          icon: Icons.upload_outlined,
-          title: 'Imports',
-          subtitle: 'Validate and apply CSV onboarding data',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ImportsHubScreen(deps: deps)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        AdminSectionCard(
-          icon: Icons.home_work_outlined,
-          title: 'School profile',
-          subtitle: 'Name, timezone, and contact details',
-          onTap: () => controller.selectSection(AdminSection.school),
-        ),
-      ],
     );
   }
 }

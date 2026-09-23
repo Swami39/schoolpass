@@ -221,11 +221,14 @@ async def patch_subject(
 async def list_teacher_assignments(
     principal: Annotated[Principal, Depends(require("academic:read"))],
     factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    section_id: UUID | None = None,
 ) -> TeacherAssignmentListResponse:
     async with factory() as session:
         async with session.begin():
             await apply_tenant_context(session, _ctx(principal))
-            rows = await admin_academic.list_teacher_assignments(session, _ctx(principal))
+            rows = await admin_academic.list_teacher_assignments(
+                session, _ctx(principal), section_id=section_id
+            )
     return TeacherAssignmentListResponse(
         items=[TeacherAssignmentResponse.model_validate(r) for r in rows]
     )

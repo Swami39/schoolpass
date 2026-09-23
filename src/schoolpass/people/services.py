@@ -634,6 +634,7 @@ async def list_enrollments(
     ctx: TenantContext,
     *,
     student_id: UUID | None,
+    section_id: UUID | None,
     status: str | None,
     limit: int,
     cursor: str | None,
@@ -643,6 +644,11 @@ async def list_enrollments(
     if student_id is not None:
         await _require_student_in_tenant(session, ctx, student_id)
         stmt = stmt.where(Enrollment.student_id == student_id)
+    if section_id is not None:
+        section = await session.get(Section, section_id)
+        if section is None or section.tenant_id != _tenant_id(ctx):
+            raise NotFoundError()
+        stmt = stmt.where(Enrollment.section_id == section_id)
     if status:
         stmt = stmt.where(Enrollment.status == status)
     decoded = decode_cursor(cursor) if cursor else None
