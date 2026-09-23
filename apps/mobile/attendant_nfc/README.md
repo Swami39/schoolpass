@@ -30,7 +30,8 @@ On device, open the store with a file path under app support (SQLCipher optional
 
 ## Flutter app
 
-This repo does not yet include a full Flutter shell. Import this package from the future `apps/mobile` attendant flavor and:
+Production shell: `apps/mobile/attendant_app_mobile` (uses this package). Import from other apps only if you need a custom flavor:
+
 
 1. Register `client_device_id` via existing identity APIs.
 2. Provide [`MutableTripContext`](lib/src/trip_context.dart) from the active trip UI/state.

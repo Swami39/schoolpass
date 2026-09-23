@@ -26,5 +26,55 @@ services:
       timeout: 3s
       retries: 20
 
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../../.env
+    environment:
+      APP_ENV: local
+      DATABASE_URL: postgresql+asyncpg://schoolpass_app:app_dev_only@postgres:5432/schoolpass
+      DATABASE_URL_MIGRATOR: postgresql+psycopg://schoolpass_migrator:migrator_dev_only@postgres:5432/schoolpass
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../../.data:/app/.data
+    command: ["api"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    env_file:
+      - ../../.env
+    environment:
+      APP_ENV: local
+      DATABASE_URL: postgresql+asyncpg://schoolpass_app:app_dev_only@postgres:5432/schoolpass
+      DATABASE_URL_MIGRATOR: postgresql+psycopg://schoolpass_migrator:migrator_dev_only@postgres:5432/schoolpass
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../../.data:/app/.data
+    command: ["worker"]
+
 volumes:
   schoolpass_pg:

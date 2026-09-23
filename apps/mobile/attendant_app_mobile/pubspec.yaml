@@ -1,0 +1,24 @@
+name: attendant_app_mobile
+description: SchoolPass bus attendant app production entrypoint (secure storage wired).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  attendant_app:
+    path: ../attendant_app
+  attendant_secure_storage:
+    path: ../attendant_secure_storage
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

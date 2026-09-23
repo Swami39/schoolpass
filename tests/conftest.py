@@ -69,7 +69,12 @@ def settings(jwt_keys: tuple[str, str]) -> Settings:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def migrate(settings: Settings) -> None:
+def migrate(request: pytest.FixtureRequest, settings: Settings) -> None:
+    # Pure unit-test runs (e.g. the RFID protocol tests) do not need a database.
+    collected = getattr(request.session, "items", [])
+    if collected and all(item.get_closest_marker("unit") for item in collected):
+        return
+
     from alembic import command
     from alembic.config import Config
 

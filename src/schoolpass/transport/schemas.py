@@ -200,6 +200,14 @@ class TripListResponse(BaseModel):
     next_cursor: str | None = None
 
 
+class TransportAttendantClientDeviceRegisterRequest(BaseModel):
+    device_uuid: UUID
+
+
+class TransportAttendantClientDeviceResponse(BaseModel):
+    client_device_id: UUID
+
+
 class TransportNfcSyncRequest(BaseModel):
     client_event_id: UUID
     event_type: str = Field(pattern="^(boarding|dropoff)$")

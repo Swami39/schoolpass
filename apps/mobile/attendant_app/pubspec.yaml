@@ -1,0 +1,24 @@
+name: attendant_app
+description: SchoolPass bus attendant mobile app (transport NFC outbox).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  uuid: ^4.5.1
+  attendant_nfc:
+    path: ../attendant_nfc
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

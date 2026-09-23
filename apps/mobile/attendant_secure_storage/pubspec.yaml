@@ -1,0 +1,15 @@
+name: attendant_secure_storage
+description: Production secure token storage for SchoolPass bus attendant app.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter_secure_storage: ^9.2.4
+  attendant_app:
+    path: ../attendant_app
+
+dev_dependencies:
+  lints: ^5.0.0
