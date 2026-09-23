@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile_push/mobile_push.dart';
 
 import '../api/attendant_errors.dart';
 import '../auth/auth_models.dart';
@@ -18,6 +19,12 @@ class AttendantAppController extends ChangeNotifier {
   String? errorMessage;
   bool loadingTrips = false;
 
+  PushSetup get _pushSetup => PushSetup(
+        getAuthToken: deps.tokenStore.readAccessToken,
+        apiBaseUrl: deps.apiOrigin.toString(),
+        appLabel: 'attendant',
+      );
+
   Future<void> bootstrap() async {
     final session = await deps.authRepository.loadPersistedSession();
     if (session == null) {
@@ -36,6 +43,12 @@ class AttendantAppController extends ChangeNotifier {
       await deps.authRepository.login(identifier: identifier, password: password);
       phase = AttendantAppPhase.signedIn;
       await _loadTrips();
+      // Register the FCM token with the push endpoint now that we are
+      // authenticated (registerPushToken never throws).
+      final fcmToken = await currentFcmToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await registerPushToken(_pushSetup, fcmToken);
+      }
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check Wi‑Fi and that the Mac API is reachable.';
     } on AuthMfaRequired {
@@ -47,6 +60,9 @@ class AttendantAppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Remove the push registration while we still hold the auth token
+    // (unregisterPushToken never throws).
+    await unregisterPushToken(_pushSetup);
     await deps.authRepository.logout();
     trips = const [];
     selectedTrip = null;

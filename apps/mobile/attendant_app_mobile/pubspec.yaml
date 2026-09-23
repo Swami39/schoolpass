@@ -14,6 +14,8 @@ dependencies:
     path: ../attendant_app
   attendant_secure_storage:
     path: ../attendant_secure_storage
+  mobile_push:
+    path: ../mobile_push
 
 dev_dependencies:
   flutter_test:

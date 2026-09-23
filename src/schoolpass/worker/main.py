@@ -16,10 +16,13 @@ from schoolpass.notifications.delivery import NotificationDeliveryService
 from schoolpass.notifications.dispatch_worker import process_notification_dispatch_message
 from schoolpass.notifications.fcm import (
     DisabledFcmTransport,
+    FcmCredentials,
     FcmHttpV1Provider,
+    FcmTransport,
     MemoryFcmCredentials,
     RecordingFcmTransport,
 )
+from schoolpass.notifications.fcm_real import GoogleServiceAccountCredentials, HttpxFcmTransport
 from schoolpass.observability.logging import configure_logging, get_logger
 from schoolpass.tenancy.context import TenantContext
 
@@ -87,14 +90,31 @@ async def publish_outbox_batch() -> int:
 
 
 def _build_delivery_service(settings: Settings) -> NotificationDeliveryService:
-    transport: RecordingFcmTransport | DisabledFcmTransport
+    transport: FcmTransport
+    credentials: FcmCredentials
     if settings.app_env == "test":
         transport = RecordingFcmTransport()
+        credentials = MemoryFcmCredentials()
+    elif settings.fcm_enabled and settings.fcm_service_account_path:
+        try:
+            transport = HttpxFcmTransport()
+            credentials = GoogleServiceAccountCredentials(
+                service_account_file=settings.fcm_service_account_path,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.error("fcm_init_failed", error=type(exc).__name__)
+            transport = DisabledFcmTransport()
+            credentials = MemoryFcmCredentials()
     else:
         transport = DisabledFcmTransport()
+        credentials = MemoryFcmCredentials()
+        log.warning(
+            "fcm_disabled",
+            hint="Set FCM_ENABLED=true and FIREBASE_SERVICE_ACCOUNT_JSON to send push notifications",
+        )
     fcm = FcmHttpV1Provider(
         project_id=settings.fcm_project_id,
-        credentials=MemoryFcmCredentials(),
+        credentials=credentials,
         transport=transport,
     )
     return NotificationDeliveryService(fcm=fcm)

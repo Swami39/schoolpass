@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile_push/mobile_push.dart';
 
 import '../auth/auth_models.dart';
 import '../children/child_models.dart';
@@ -17,6 +18,12 @@ class ParentAppController extends ChangeNotifier {
   ParentChild? selectedChild;
   String? errorMessage;
   bool loadingChildren = false;
+
+  PushSetup get _pushSetup => PushSetup(
+        getAuthToken: deps.tokenStore.readAccessToken,
+        apiBaseUrl: deps.apiOrigin.toString(),
+        appLabel: 'parent',
+      );
 
   Future<void> bootstrap() async {
     final session = await deps.authRepository.loadPersistedSession();
@@ -41,6 +48,12 @@ class ParentAppController extends ChangeNotifier {
       } catch (_) {
         // Push registration is best-effort.
       }
+      // Register the FCM token with the push endpoint now that we are
+      // authenticated (registerPushToken never throws).
+      final fcmToken = await currentFcmToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await registerPushToken(_pushSetup, fcmToken);
+      }
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
     } on AuthMfaRequired {
@@ -52,6 +65,9 @@ class ParentAppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Remove the push registration while we still hold the auth token
+    // (unregisterPushToken never throws).
+    await unregisterPushToken(_pushSetup);
     deps.pushService.clearLocalRegistrationState();
     await deps.authRepository.logout();
     children = const [];

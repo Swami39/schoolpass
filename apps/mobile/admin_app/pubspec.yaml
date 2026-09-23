@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  mobile_push:
+    path: ../mobile_push
 
 dev_dependencies:
   flutter_test:

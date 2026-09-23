@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile_push/mobile_push.dart';
 
 import '../auth/auth_models.dart';
 import '../classes/teacher_class_models.dart';
@@ -18,6 +19,12 @@ class TeacherAppController extends ChangeNotifier {
   String? errorMessage;
   bool loadingClasses = false;
 
+  PushSetup get _pushSetup => PushSetup(
+        getAuthToken: deps.tokenStore.readAccessToken,
+        apiBaseUrl: deps.apiOrigin.toString(),
+        appLabel: 'teacher',
+      );
+
   Future<void> bootstrap() async {
     final session = await deps.authRepository.loadPersistedSession();
     if (session == null) {
@@ -36,6 +43,12 @@ class TeacherAppController extends ChangeNotifier {
       await deps.authRepository.login(identifier: identifier, password: password);
       phase = TeacherAppPhase.signedIn;
       await _loadClasses();
+      // Register the FCM token with the push endpoint now that we are
+      // authenticated (registerPushToken never throws).
+      final fcmToken = await currentFcmToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await registerPushToken(_pushSetup, fcmToken);
+      }
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
     } on AuthMfaRequired {
@@ -47,6 +60,9 @@ class TeacherAppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Remove the push registration while we still hold the auth token
+    // (unregisterPushToken never throws).
+    await unregisterPushToken(_pushSetup);
     await deps.authRepository.logout();
     classes = const [];
     selectedClass = null;

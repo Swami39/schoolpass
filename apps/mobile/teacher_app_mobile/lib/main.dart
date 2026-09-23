@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:mobile_push/mobile_push.dart';
 import 'package:teacher_app/teacher_app.dart';
 import 'package:teacher_secure_storage/teacher_secure_storage.dart';
 
@@ -9,5 +12,12 @@ void main() {
     ),
     tokenStore: createProductionTokenStore(),
   );
+  // Start FCM push. initPush never throws, so this cannot break startup.
+  // Registration is retried after login when no auth token exists yet.
+  unawaited(initPush(PushSetup(
+    getAuthToken: deps.tokenStore.readAccessToken,
+    apiBaseUrl: deps.apiOrigin.toString(),
+    appLabel: 'teacher',
+  )));
   runApp(TeacherAppShell(deps: deps));
 }

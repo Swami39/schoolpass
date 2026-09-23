@@ -91,6 +91,8 @@ PERMISSIONS: dict[str, str] = {
     "parent:attendance_read": "Read attendance for linked children",
     "parent:notifications_read": "Read parent notification inbox",
     "parent:notifications_preferences": "Manage parent notification preferences",
+    "bus_attendant:push_register": "Register mobile device for push notifications",
+    "school_admin:push_register": "Register mobile device for push notifications",
     "teacher:me_read": "Read authenticated teacher profile",
     "teacher:classes_read": "List teacher class assignments",
     "teacher:students_read": "List students in assigned classes",
@@ -103,6 +105,7 @@ PERMISSIONS: dict[str, str] = {
     "teacher:results_write": "Enter or update results for assigned classes",
     "teacher:messages_write": "Send messages to parents of authorized students",
     "teacher:notifications_read": "Read teacher notification inbox",
+    "teacher:push_register": "Register mobile device for push notifications",
 }
 
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
@@ -202,6 +205,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "transport_boarding:read",
         "gps_samples:sync",
         "gps_samples:read",
+        "school_admin:push_register",
     ),
     "school_finance": (
         "tenant:read",
@@ -241,6 +245,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "teacher:results_write",
         "teacher:messages_write",
         "teacher:notifications_read",
+        "teacher:push_register",
     ),
     "bus_attendant": (
         "tenant:read",
@@ -255,6 +260,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "transport_nfc:sync",
         "transport_boarding:read",
         "gps_samples:sync",
+        "bus_attendant:push_register",
     ),
     "parent": (
         "tenant:read",

@@ -17,6 +17,8 @@ dependencies:
   uuid: ^4.5.1
   attendant_nfc:
     path: ../attendant_nfc
+  mobile_push:
+    path: ../mobile_push
 
 dev_dependencies:
   flutter_test:

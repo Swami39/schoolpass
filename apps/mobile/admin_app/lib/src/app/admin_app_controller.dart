@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile_push/mobile_push.dart';
 
 import '../auth/auth_models.dart';
 import '../school/admin_school_api.dart';
@@ -35,6 +36,21 @@ class AdminAppController extends ChangeNotifier {
   String? successMessage;
   String? pendingMfaToken;
 
+  PushSetup get _pushSetup => PushSetup(
+        getAuthToken: deps.tokenStore.readAccessToken,
+        apiBaseUrl: deps.apiOrigin.toString(),
+        appLabel: 'admin',
+      );
+
+  Future<void> _registerPushTokenAfterLogin() async {
+    // Register the FCM token with the push endpoint now that we are
+    // authenticated (registerPushToken never throws).
+    final fcmToken = await currentFcmToken();
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      await registerPushToken(_pushSetup, fcmToken);
+    }
+  }
+
   Future<void> bootstrap() async {
     final session = await deps.authRepository.loadPersistedSession();
     if (session == null) {
@@ -57,6 +73,7 @@ class AdminAppController extends ChangeNotifier {
       );
       phase = AdminAppPhase.signedIn;
       section = AdminSection.dashboard;
+      await _registerPushTokenAfterLogin();
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
     } on AuthMfaRequired catch (e) {
@@ -85,6 +102,7 @@ class AdminAppController extends ChangeNotifier {
       pendingMfaToken = null;
       phase = AdminAppPhase.signedIn;
       section = AdminSection.dashboard;
+      await _registerPushTokenAfterLogin();
     } on AuthNetworkFailure {
       errorMessage = 'Network error. Check your connection and try again.';
     } on AuthFailure catch (e) {
@@ -100,6 +118,9 @@ class AdminAppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Remove the push registration while we still hold the auth token
+    // (unregisterPushToken never throws).
+    await unregisterPushToken(_pushSetup);
     await deps.authRepository.logout();
     schoolProfile = null;
     section = AdminSection.dashboard;

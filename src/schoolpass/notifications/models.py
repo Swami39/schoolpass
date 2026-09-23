@@ -48,6 +48,8 @@ class NotificationDevice(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     platform: Mapped[str] = mapped_column(String(32), nullable=False)
     fcm_token: Mapped[str] = mapped_column(String(512), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    app_label: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)

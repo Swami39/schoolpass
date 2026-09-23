@@ -47,6 +47,14 @@ class Settings(BaseSettings):
 
     fcm_project_id: str = "schoolpass-test"
     fcm_enabled: bool = False
+    # Path to a Firebase service-account JSON key used for FCM HTTP v1.
+    # Either env var works; FIREBASE_SERVICE_ACCOUNT_JSON takes precedence.
+    google_application_credentials: str = ""
+    firebase_service_account_json: str = ""
+
+    @property
+    def fcm_service_account_path(self) -> str:
+        return self.firebase_service_account_json or self.google_application_credentials
 
     cors_origins: str = ""
     # Used when admin/import creates parent or teacher logins. Leave empty in production
