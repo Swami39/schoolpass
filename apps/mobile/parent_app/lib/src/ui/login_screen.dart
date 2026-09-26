@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../app/parent_app_controller.dart';
 import 'widgets.dart';
@@ -71,30 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 16),
-                  const Center(child: BrandMark(icon: Icons.school)),
-                  const SizedBox(height: 20),
-                  Text(
-                    'SchoolPass',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+                  const HeroCard(
+                    eyebrow: 'Parent app',
+                    title: 'SchoolPass',
+                    subtitle:
+                        'Attendance, bus tracking and alerts for your children.',
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Parent',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Attendance, bus tracking and alerts for your children.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   TextField(
                     controller: _identifier,
                     decoration: const InputDecoration(
@@ -126,15 +110,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ErrorBanner(message: error),
                   ],
                   const SizedBox(height: 24),
-                  FilledButton(
+                  PrimaryButton(
+                    label: _submitting ? 'Signing in…' : 'Sign in',
                     onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Sign in'),
                   ),
                   const SizedBox(height: 16),
                   Text(

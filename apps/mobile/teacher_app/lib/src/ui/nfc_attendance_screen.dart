@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/nfc_manager_android.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:schoolpass_design/schoolpass_design.dart' as design;
 import 'package:uuid/uuid.dart';
 
 import '../api/teacher_errors.dart';
@@ -61,8 +62,23 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
   }
 
   Future<void> _boot() async {
+    final String deviceId;
     try {
-      final deviceId = await widget.controller.deps.deviceApi.registerDevice(const Uuid().v4());
+      deviceId =
+          await widget.controller.deps.deviceApi.registerDevice(const Uuid().v4());
+    } on TeacherUnauthorized {
+      await widget.controller.logout();
+      return;
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error =
+            'Could not register this device with the server. Check your connection and try again. ($e)';
+        _booting = false;
+      });
+      return;
+    }
+    try {
       final TeacherClassNfcOutboxStore store;
       if (kIsWeb) {
         store = TeacherClassNfcOutboxStore.openInMemory();
@@ -94,12 +110,10 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
         _booting = false;
       });
       unawaited(_detectNfc());
-    } on TeacherUnauthorized {
-      await widget.controller.logout();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not register device for NFC sync.';
+        _error = 'Could not open the on-device scan storage. ($e)';
         _booting = false;
       });
     }
@@ -232,30 +246,26 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
   }
 
   Widget _syncChip(String state) {
-    final scheme = Theme.of(context).colorScheme;
     switch (state) {
       case 'synced':
-        return const StatusChip(
+        return const design.StatusPill(
+          kind: design.StatusKind.present,
           label: 'Synced',
-          color: Color(0xFF15803D),
-          icon: Icons.cloud_done_outlined,
         );
       case 'pending':
-        return StatusChip(
+        return const design.StatusPill(
+          kind: design.StatusKind.neutral,
           label: 'Queued offline',
-          color: scheme.onSurfaceVariant,
-          icon: Icons.cloud_off_outlined,
         );
       case 'rejected':
-        return StatusChip(
+        return const design.StatusPill(
+          kind: design.StatusKind.absent,
           label: 'Rejected',
-          color: scheme.error,
-          icon: Icons.cloud_off_outlined,
         );
       default:
-        return StatusChip(
+        return design.StatusPill(
+          kind: design.StatusKind.neutral,
           label: prettifyLabel(state),
-          color: scheme.onSurfaceVariant,
         );
     }
   }
@@ -263,7 +273,6 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text('NFC · ${widget.clazz.displayLabel}')),
       body: _booting
@@ -279,7 +288,8 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
                   onStop: _stopNfcScanning,
                 ),
                 const SizedBox(height: 12),
-                Card(
+                design.Panel(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   child: ExpansionTile(
                     leading: const Icon(Icons.keyboard_outlined),
                     title: const Text('Enter card UID manually'),
@@ -300,16 +310,16 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
                               onSubmitted: (_) => _submitManual(),
                             ),
                             const SizedBox(height: 12),
-                            FilledButton.icon(
+                            design.PrimaryButton(
+                              label: 'Record scan',
+                              icon: Icons.tap_and_play,
                               onPressed: _submitManual,
-                              icon: const Icon(Icons.tap_and_play),
-                              label: const Text('Record scan'),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               'Scans are stored on this device and synced when you are back online.',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
+                                color: design.DesignColors.ink2,
                               ),
                             ),
                           ],
@@ -320,7 +330,7 @@ class _NfcAttendanceScreenState extends State<NfcAttendanceScreen> {
                 ),
                 if (_status != null) ...[
                   const SizedBox(height: 16),
-                  Card(
+                  design.Panel(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
@@ -360,8 +370,7 @@ class _NfcScanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Card(
+    return design.Panel(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -371,12 +380,14 @@ class _NfcScanCard extends StatelessWidget {
               height: 88,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: scanning ? scheme.primary : scheme.primaryContainer,
+                color: scanning
+                    ? design.DesignColors.brand
+                    : design.DesignColors.brandSoft,
               ),
               child: Icon(
                 Icons.nfc_outlined,
                 size: 44,
-                color: scanning ? scheme.onPrimary : scheme.onPrimaryContainer,
+                color: scanning ? Colors.white : design.DesignColors.brandInk,
               ),
             ),
             const SizedBox(height: 12),
@@ -390,9 +401,11 @@ class _NfcScanCard extends StatelessWidget {
                   ? 'Hold each card near the back of the phone.'
                   : available
                       ? "Scan cards with the phone's NFC reader."
-                      : 'NFC is not available on this phone — use manual entry below.',
+                      : 'NFC is not available on this phone \u2014 use manual entry below.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: design.DesignColors.ink2,
+              ),
             ),
             const SizedBox(height: 16),
             if (scanning)
@@ -402,16 +415,18 @@ class _NfcScanCard extends StatelessWidget {
                 label: const Text('Stop scanning'),
               )
             else
-              FilledButton.icon(
+              design.PrimaryButton(
+                label: 'Start scanning',
+                icon: Icons.nfc_outlined,
                 onPressed: available ? onStart : null,
-                icon: const Icon(Icons.nfc_outlined),
-                label: const Text('Start scanning'),
               ),
             if (scanCount > 0) ...[
               const SizedBox(height: 8),
               Text(
                 'Scans this session: $scanCount',
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: design.DesignColors.ink3,
+                ),
               ),
             ],
           ],

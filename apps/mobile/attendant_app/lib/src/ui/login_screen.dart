@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../app/attendant_app_controller.dart';
 import 'widgets.dart';
@@ -83,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Bus Attendant',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: DesignColors.ink2,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -91,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Scan student cards and share live bus location.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: DesignColors.ink2,
                     ),
                   ),
                   const SizedBox(height: 32),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../app/attendant_app_controller.dart';
 import '../trips/trip_models.dart';
@@ -13,10 +14,12 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My trips'),
+        title: const DesignAppBarTitle(
+          'My trips',
+          subtitle: 'Tap a trip to start boarding',
+        ),
         actions: [
           IconButton(
             onPressed: controller.refreshTrips,
@@ -32,12 +35,12 @@ class HomeScreen extends StatelessWidget {
       ),
       body: RefreshIndicator(
         onRefresh: controller.refreshTrips,
-        child: _body(context, theme),
+        child: _body(context),
       ),
     );
   }
 
-  Widget _body(BuildContext context, ThemeData theme) {
+  Widget _body(BuildContext context) {
     if (controller.loadingTrips && controller.trips.isEmpty) {
       return ListView(
         children: const [
@@ -71,13 +74,7 @@ class HomeScreen extends StatelessWidget {
           ErrorBanner(message: error),
           const SizedBox(height: 12),
         ],
-        Text(
-          formatDayYear(today),
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
+        SectionLabel(formatDayYear(today)),
         for (final trip in controller.trips) ...[
           _TripCard(controller: controller, trip: trip),
           const SizedBox(height: 12),
@@ -98,6 +95,12 @@ class _TripCard extends StatelessWidget {
     if (shift.contains('morn')) return Icons.wb_sunny_outlined;
     if (shift.contains('even') || shift.contains('afternoon')) return Icons.wb_twilight_outlined;
     return Icons.directions_bus_outlined;
+  }
+
+  /// A trip is "live" once boarding has started or it is in progress.
+  bool get _isLive {
+    final status = trip.status.toLowerCase();
+    return status == 'boarding' || status == 'in_progress';
   }
 
   Future<void> _open(BuildContext context) async {
@@ -134,50 +137,62 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final date = DateTime.tryParse(trip.serviceDate);
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+    final dateLabel = date != null ? formatDay(date) : trip.serviceDate;
+    final title = '${prettifyLabel(trip.shift)} trip';
+
+    if (_isLive) {
+      // The active trip gets the CampusPass-style live hero header.
+      return HeroCard(
+        eyebrow: 'Live trip',
+        title: title,
+        subtitle: '$dateLabel · ${prettifyLabel(trip.status)}',
+        live: true,
         onTap: () => _open(context),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(_shiftIcon, color: scheme.onPrimaryContainer, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${prettifyLabel(trip.shift)} trip',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      date != null ? formatDay(date) : trip.serviceDate,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _StatusChip(status: trip.status),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-            ],
-          ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: Colors.white.withValues(alpha: 0.9),
         ),
+      );
+    }
+
+    final bus = context.status.of(StatusKind.bus);
+    return Panel(
+      onTap: () => _open(context),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: context.status.softOf(StatusKind.bus),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(_shiftIcon, color: bus, size: 28),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  dateLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: DesignColors.ink2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _StatusChip(status: trip.status),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: DesignColors.ink3),
+        ],
       ),
     );
   }
@@ -188,51 +203,16 @@ class _StatusChip extends StatelessWidget {
 
   final String status;
 
+  StatusKind get _kind {
+    final s = status.toLowerCase();
+    if (s == 'boarding' || s == 'in_progress') return StatusKind.bus;
+    if (s.contains('cancel')) return StatusKind.absent;
+    if (s == 'completed') return StatusKind.present;
+    return StatusKind.neutral;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final s = status.toLowerCase();
-    late final Color bg;
-    late final Color fg;
-    late final IconData icon;
-    if (s == 'boarding') {
-      bg = const Color(0xFFE6F4EA);
-      fg = const Color(0xFF137333);
-      icon = Icons.nfc_outlined;
-    } else if (s == 'in_progress') {
-      bg = const Color(0xFFFEF7E0);
-      fg = const Color(0xFF7A4A00);
-      icon = Icons.directions_bus;
-    } else if (s == 'scheduled') {
-      bg = const Color(0xFFE8F0FE);
-      fg = const Color(0xFF174EA6);
-      icon = Icons.schedule_outlined;
-    } else if (s == 'completed') {
-      bg = const Color(0xFFE8EAED);
-      fg = const Color(0xFF3C4043);
-      icon = Icons.check_circle_outline;
-    } else if (s.contains('cancel')) {
-      bg = const Color(0xFFFCE8E6);
-      fg = const Color(0xFFA50E0E);
-      icon = Icons.cancel_outlined;
-    } else {
-      bg = const Color(0xFFE8EAED);
-      fg = const Color(0xFF3C4043);
-      icon = Icons.info_outline;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: fg),
-          const SizedBox(width: 4),
-          Text(
-            prettifyLabel(status),
-            style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12),
-          ),
-        ],
-      ),
-    );
+    return StatusPill(kind: _kind, label: prettifyLabel(status));
   }
 }

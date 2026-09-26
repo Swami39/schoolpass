@@ -1,34 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
-/// Gradient logo mark used on the splash and login screens.
+/// Gradient logo mark used on the splash and login screens — the CampusPass
+/// logo block: 42px rounded brand-gradient container with a white icon.
 class BrandMark extends StatelessWidget {
-  const BrandMark({required this.icon, super.key, this.size = 76});
+  const BrandMark({required this.icon, super.key, this.size = 42});
 
   final IconData icon;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [scheme.primary, scheme.tertiary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.28),
+        gradient: DesignColors.brandGradient,
+        borderRadius: BorderRadius.circular(size * 0.30),
         boxShadow: [
           BoxShadow(
-            color: scheme.primary.withValues(alpha: 0.25),
+            color: DesignColors.brand.withValues(alpha: 0.30),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Icon(icon, size: size * 0.52, color: scheme.onPrimary),
+      child: Icon(icon, size: size * 0.52, color: Colors.white),
     );
   }
 }

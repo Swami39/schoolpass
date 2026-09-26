@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart' as design;
 
 import '../api/teacher_errors.dart';
 import '../app/teacher_app_controller.dart';
@@ -9,6 +10,72 @@ import 'format.dart';
 import 'teacher_widgets.dart';
 
 const _statuses = ['present', 'late', 'absent', 'excused'];
+
+/// Initials for the design-system avatar (mirrors teacher_widgets' rule).
+String _initialsOf(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+}
+
+/// Stable brand-tinted avatar colour per student name.
+Color _avatarColor(String name) {
+  const palette = [
+    design.DesignColors.brand,
+    design.DesignColors.brand2,
+    design.DesignColors.brandInk,
+  ];
+  var hash = 0;
+  for (final c in name.codeUnits) {
+    hash = (hash * 31 + c) & 0x7fffffff;
+  }
+  return palette[hash % palette.length];
+}
+
+/// Status pill for a record (or the unmarked state).
+Widget _statusPill(TeacherAttendanceRecord? record) {
+  if (record == null) {
+    return const design.StatusPill(
+      kind: design.StatusKind.neutral,
+      label: 'Not marked',
+    );
+  }
+  final at = record.entryAt;
+  final time = at == null ? '' : ' \u00b7 ${formatTime(at)}';
+  switch (record.status.toLowerCase()) {
+    case 'present':
+      return design.StatusPill(
+        kind: design.StatusKind.present,
+        label: 'Present$time',
+      );
+    case 'late':
+      return design.StatusPill(
+        kind: design.StatusKind.late,
+        label: 'Late$time',
+      );
+    case 'absent':
+      return const design.StatusPill(
+        kind: design.StatusKind.absent,
+        label: 'Absent',
+      );
+    case 'excused':
+      return const design.StatusPill(
+        kind: design.StatusKind.bus,
+        label: 'Excused',
+      );
+    case 'manual':
+      return const design.StatusPill(
+        kind: design.StatusKind.neutral,
+        label: 'Manual',
+      );
+    default:
+      return design.StatusPill(
+        kind: design.StatusKind.neutral,
+        label: prettifyLabel(record.status),
+      );
+  }
+}
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({required this.controller, required this.clazz, super.key});
@@ -150,9 +217,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Attendance · ${widget.clazz.displayLabel}')),
+      appBar: AppBar(title: Text('Attendance \u00b7 ${widget.clazz.displayLabel}')),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -160,19 +226,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _SummaryBar(
+                  _RegisterHeader(
+                    classLabel: widget.clazz.displayLabel,
                     present: _countFor('present'),
                     late: _countFor('late'),
                     absent: _countFor('absent'),
-                    excused: _countFor('excused'),
                     total: _students.length,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    formatDayYear(DateTime.now()),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
                   ),
                   const SizedBox(height: 8),
                   if (_error != null) ...[
@@ -184,14 +243,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       icon: Icons.people_outline,
                       title: 'No students enrolled',
                       subtitle: 'This class has no students yet.',
-                    ),
-                  for (final student in _students)
-                    _StudentAttendanceTile(
-                      student: student,
-                      record: _records[student.id],
-                      saving: _savingIds.contains(student.id),
-                      onMark: _mark,
-                    ),
+                    )
+                  else ...[
+                    const design.SectionLabel('Roster'),
+                    for (final student in _students)
+                      _StudentAttendanceTile(
+                        student: student,
+                        record: _records[student.id],
+                        saving: _savingIds.contains(student.id),
+                        onMark: _mark,
+                      ),
+                  ],
                 ],
               ),
       ),
@@ -203,7 +265,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: FilledButton.icon(
                   onPressed: _finish,
                   icon: const Icon(Icons.done_all),
-                  label: Text('Finish · $_markedCount of ${_students.length} marked'),
+                  label: Text('Finish \u00b7 $_markedCount of ${_students.length} marked'),
                 ),
               ),
             ),
@@ -211,75 +273,72 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 }
 
-class _SummaryBar extends StatelessWidget {
-  const _SummaryBar({
+/// Register summary header: class title, attendance-rate ring and
+/// present/late/absent tallies.
+class _RegisterHeader extends StatelessWidget {
+  const _RegisterHeader({
+    required this.classLabel,
     required this.present,
     required this.late,
     required this.absent,
-    required this.excused,
     required this.total,
   });
 
+  final String classLabel;
   final int present;
   final int late;
   final int absent;
-  final int excused;
   final int total;
 
+  double get _rate => total == 0 ? 0 : (present + late) / total;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Today\u2019s register',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: scheme.onPrimaryContainer,
+    return design.Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: design.DesignAppBarTitle(
+                  classLabel,
+                  subtitle: formatDayYear(DateTime.now()),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _MiniCount(label: 'Present', count: present, color: const Color(0xFF15803D)),
-                _MiniCount(label: 'Late', count: late, color: const Color(0xFFB45309)),
-                _MiniCount(label: 'Absent', count: absent, color: scheme.error),
-                _MiniCount(label: 'Excused', count: excused, color: const Color(0xFF1D4ED8)),
-                _MiniCount(label: 'Total', count: total, color: scheme.onPrimaryContainer),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniCount extends StatelessWidget {
-  const _MiniCount({required this.label, required this.count, required this.color});
-
-  final String label;
-  final int count;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$label: $count',
-        style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),
+              design.StatRing(fraction: _rate, label: 'Present', size: 76),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: design.Tally(
+                  count: present,
+                  label: 'Present',
+                  kind: design.StatusKind.present,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: design.Tally(
+                  count: late,
+                  label: 'Late',
+                  kind: design.StatusKind.late,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: design.Tally(
+                  count: absent,
+                  label: 'Absent',
+                  kind: design.StatusKind.absent,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -300,63 +359,74 @@ class _StudentAttendanceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = record?.status ?? 'not marked';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  InitialsAvatar(name: student.displayName, radius: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(student.displayName,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            )),
-                        if (record != null)
-                          Text(
-                            'via ${prettifyLabel(record!.source)}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                      ],
-                    ),
+      child: design.Panel(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                design.InitialsAvatar(
+                  initials: _initialsOf(student.displayName),
+                  color: _avatarColor(student.displayName),
+                  size: 44,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        student.displayName,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Adm ${student.admissionNo}',
+                        style: design.DesignTypography.mono(
+                          size: 12,
+                          color: design.DesignColors.ink3,
+                        ),
+                      ),
+                      if (record != null)
+                        Text(
+                          'via ${prettifyLabel(record!.source)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: design.DesignColors.ink3,
+                              ),
+                        ),
+                    ],
                   ),
-                  if (saving)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    attendanceStatusChip(context, status),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final s in _statuses)
-                    _StatusButton(
-                      status: s,
-                      selected: record?.status.toLowerCase() == s,
-                      enabled: !saving,
-                      onTap: () => onMark(student, s),
-                    ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                if (saving)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  _statusPill(record),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final s in _statuses)
+                  _StatusButton(
+                    status: s,
+                    selected: record?.status.toLowerCase() == s,
+                    enabled: !saving,
+                    onTap: () => onMark(student, s),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );

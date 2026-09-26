@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../academic/academic_models.dart';
 import '../app/admin_app_controller.dart';
@@ -123,27 +124,32 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
       studentsDone,
       parentsDone,
     ].where((d) => d).length;
+    // First incomplete step is the "current" one.
+    final currentStep = [
+      profileDone,
+      structureDone,
+      teachersDone,
+      studentsDone,
+      parentsDone,
+    ].indexWhere((d) => !d);
 
-    final theme = Theme.of(context);
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Get your school ready', style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(
-            'Follow the steps in order — each one builds on the last.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          HeroCard(
+            eyebrow: 'Setup checklist',
+            title: doneCount == 5 ? 'All set — school is ready' : 'Get started',
+            subtitle:
+                '$doneCount of 5 steps complete · ${((doneCount / 5) * 100).round()}%',
           ),
-          const SizedBox(height: 12),
-          _ProgressHeader(done: doneCount, total: 5),
           const SizedBox(height: 20),
+          const SectionLabel('Steps in order'),
           _StepCard(
             step: 1,
             done: profileDone,
+            isCurrent: currentStep == 0,
             icon: Icons.home_work_outlined,
             title: 'Set up the school',
             subtitle: profileDone
@@ -157,6 +163,7 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
           _StepCard(
             step: 2,
             done: structureDone,
+            isCurrent: currentStep == 1,
             icon: Icons.account_tree_outlined,
             title: 'Add classes & sections',
             subtitle: structureDone
@@ -168,6 +175,7 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
           _StepCard(
             step: 3,
             done: teachersDone,
+            isCurrent: currentStep == 2,
             icon: Icons.badge_outlined,
             title: 'Add teachers & assign them',
             subtitle: data.teachers.isEmpty
@@ -183,6 +191,7 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
           _StepCard(
             step: 4,
             done: studentsDone,
+            isCurrent: currentStep == 3,
             icon: Icons.school_outlined,
             title: 'Enroll students',
             subtitle: studentsDone
@@ -194,6 +203,7 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
           _StepCard(
             step: 5,
             done: parentsDone,
+            isCurrent: currentStep == 4,
             icon: Icons.family_restroom_outlined,
             title: 'Link parents to children',
             subtitle: parentsDone
@@ -203,8 +213,7 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
             onTap: () => _go(SchoolStructureScreen(deps: widget.deps)),
           ),
           const SizedBox(height: 20),
-          const SectionHeader(title: 'Other ways to set up'),
-          const SizedBox(height: 8),
+          const SectionLabel('Other ways to set up'),
           AdminSectionCard(
             icon: Icons.upload_file_outlined,
             title: 'Bulk import school data',
@@ -217,65 +226,11 @@ class _SetupChecklistScreenState extends State<SetupChecklistScreen> {
   }
 }
 
-class _ProgressHeader extends StatelessWidget {
-  const _ProgressHeader({required this.done, required this.total});
-
-  final int done;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  done == total ? 'All set — school is ready' : '$done of $total steps complete',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                '${((done / total) * 100).round()}%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: done / total,
-              minHeight: 8,
-              backgroundColor: scheme.onPrimaryContainer.withValues(alpha: 0.18),
-              valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StepCard extends StatelessWidget {
   const _StepCard({
     required this.step,
     required this.done,
+    required this.isCurrent,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -285,6 +240,7 @@ class _StepCard extends StatelessWidget {
 
   final int step;
   final bool done;
+  final bool isCurrent;
   final IconData icon;
   final String title;
   final String subtitle;
@@ -293,94 +249,106 @@ class _StepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _StepBadge(step: step, done: done),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: Panel(
+        onTap: onTap,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _StepNode(step: step, done: done, isCurrent: isCurrent),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(icon, size: 18, color: scheme.primary),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                      Icon(icon, size: 18, color: DesignColors.brandInk),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: DesignColors.ink,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: FilledButton.tonal(
-                          onPressed: onTap,
-                          child: Text(cta),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: DesignColors.ink2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.tonal(
+                      onPressed: onTap,
+                      child: Text(cta),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _StepBadge extends StatelessWidget {
-  const _StepBadge({required this.step, required this.done});
+class _StepNode extends StatelessWidget {
+  const _StepNode({
+    required this.step,
+    required this.done,
+    required this.isCurrent,
+  });
 
   final int step;
   final bool done;
+  final bool isCurrent;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final status = context.status;
+    final Color bg;
+    final Widget inner;
+    if (done) {
+      bg = status.softOf(StatusKind.present);
+      inner = Icon(Icons.check, size: 20, color: status.of(StatusKind.present));
+    } else if (isCurrent) {
+      bg = DesignColors.brand;
+      inner = Text(
+        '$step',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          fontSize: 16,
+        ),
+      );
+    } else {
+      bg = status.softOf(StatusKind.neutral);
+      inner = Text(
+        '$step',
+        style: TextStyle(
+          color: status.of(StatusKind.neutral),
+          fontWeight: FontWeight.w800,
+          fontSize: 16,
+        ),
+      );
+    }
     return Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: done ? const Color(0xFFDCFCE7) : scheme.secondaryContainer,
-      ),
-      child: Center(
-        child: done
-            ? const Icon(Icons.check, size: 20, color: Color(0xFF166534))
-            : Text(
-                '$step',
-                style: TextStyle(
-                  color: scheme.onSecondaryContainer,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+      child: Center(child: inner),
     );
   }
 }

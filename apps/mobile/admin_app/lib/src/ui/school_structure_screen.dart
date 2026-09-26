@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
@@ -172,6 +173,13 @@ class _SchoolStructureScreenState extends State<SchoolStructureScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          SectionLabel(
+            'Classes',
+            trailing: Text(
+              '${_classes.length}',
+              style: DesignTypography.mono(size: 12, color: DesignColors.ink3),
+            ),
+          ),
           for (final clazz in _classes) ...[
             _ClassTile(
               clazz: clazz,
@@ -227,66 +235,106 @@ class _ClassTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final totalStudents = sections.fold<int>(
       0,
       (sum, s) => sum + (enrollmentsBySection[s.id] ?? 0),
     );
-    return Card(
+    return Panel(
+      padding: EdgeInsets.zero,
       child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: scheme.primaryContainer,
+            color: DesignColors.brandSoft,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(Icons.class_outlined, color: scheme.onPrimaryContainer),
+          child: const Icon(Icons.class_outlined, color: DesignColors.brandInk),
         ),
-        title: Text(
-          clazz.name,
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                clazz.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: DesignColors.ink,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: DesignColors.brandSoft,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${sections.length} ${sections.length == 1 ? 'section' : 'sections'}',
+                style: const TextStyle(
+                  color: DesignColors.brandInk,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
         ),
         subtitle: Text(
-          '${clazz.code} · ${sections.length} ${sections.length == 1 ? 'section' : 'sections'}'
-          '${totalStudents > 0 ? ' · $totalStudents students' : ''}',
+          '${clazz.code}${totalStudents > 0 ? ' · $totalStudents students' : ''}',
+          style: const TextStyle(fontSize: 12.5, color: DesignColors.ink2),
         ),
         children: [
           for (final section in sections)
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    section.name.isEmpty ? '?' : section.name[0].toUpperCase(),
-                    style: TextStyle(
-                      color: scheme.onSecondaryContainer,
-                      fontWeight: FontWeight.w800,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Panel(
+                padding: const EdgeInsets.all(12),
+                onTap: () => onOpenSection(section),
+                child: Row(
+                  children: [
+                    InitialsAvatar(
+                      initials: section.name.isEmpty
+                          ? '?'
+                          : section.name[0].toUpperCase(),
+                      color: DesignColors.bus,
+                      size: 40,
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Section ${section.name}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: DesignColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${enrollmentsBySection[section.id] ?? 0} students · '
+                            '${assignmentsBySection[section.id] ?? 0} teachers',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: DesignColors.ink2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    StatusChip(status: section.status),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: DesignColors.ink3,
+                    ),
+                  ],
                 ),
               ),
-              title: Text('Section ${section.name}'),
-              subtitle: Text(
-                '${enrollmentsBySection[section.id] ?? 0} students · '
-                '${assignmentsBySection[section.id] ?? 0} teachers',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  StatusChip(status: section.status),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
-              onTap: () => onOpenSection(section),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),

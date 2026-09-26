@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../app/admin_app_controller.dart';
 import '../app/admin_dependencies.dart';
@@ -69,20 +70,67 @@ class AdminHomeScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   for (final entry in _sections.entries)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                      child: ListTile(
-                        leading: Icon(_sectionIcons[entry.key]),
-                        selected: controller.section == entry.key,
-                        title: Text(entry.value),
-                        subtitle: Text(
-                          _sectionDescriptions[entry.key] ?? '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Panel(
+                        padding: const EdgeInsets.all(14),
+                        color: controller.section == entry.key
+                            ? DesignColors.brandSoft
+                            : null,
+                        borderColor: controller.section == entry.key
+                            ? DesignColors.brand
+                            : null,
                         onTap: () {
                           Navigator.of(context).pop();
                           controller.selectSection(entry.key);
                         },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: controller.section == entry.key
+                                    ? Colors.white
+                                    : DesignColors.brandSoft,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                _sectionIcons[entry.key],
+                                color: DesignColors.brandInk,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.value,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                      color: DesignColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _sectionDescriptions[entry.key] ?? '',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: DesignColors.ink2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: DesignColors.ink3,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
@@ -121,16 +169,9 @@ class _DrawerBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [scheme.primary, scheme.tertiary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: DesignColors.brandGradient),
       child: Row(
         children: [
           const BrandMark(icon: Icons.admin_panel_settings, size: 52),
@@ -141,16 +182,12 @@ class _DrawerBrand extends StatelessWidget {
               children: [
                 Text(
                   'SchoolPass',
-                  style: TextStyle(
-                    color: scheme.onPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: DesignTypography.heroTitle(size: 20),
                 ),
                 Text(
                   'Admin console',
                   style: TextStyle(
-                    color: scheme.onPrimary.withValues(alpha: 0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 13,
                   ),
                 ),

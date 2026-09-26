@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/nfc_manager_android.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 import 'package:uuid/uuid.dart';
 
 import '../api/attendant_errors.dart';
@@ -44,6 +45,8 @@ class _TripScanScreenState extends State<TripScanScreen> {
   int _scanCount = 0;
   String? _lastUid;
   DateTime? _lastUidAt;
+  // Display-only feed of the latest scans (kept in memory, never persisted).
+  final List<_ScanRecord> _recentScans = [];
 
   @override
   void initState() {
@@ -204,6 +207,12 @@ class _TripScanScreenState extends State<TripScanScreen> {
       if (!mounted) return;
       setState(() {
         _scanCount++;
+        // In-memory display feed only; the durable record lives in the outbox.
+        _recentScans.insert(
+          0,
+          _ScanRecord(uid: uid, at: DateTime.now(), type: _eventType),
+        );
+        if (_recentScans.length > 5) _recentScans.removeLast();
         _status =
             '${prettifyLabel(_eventType.name)} recorded · seq ${event.deviceSequence} · ${event.syncState.name}';
         if (event.rejectionCode != null) {
@@ -244,9 +253,13 @@ class _TripScanScreenState extends State<TripScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('${prettifyLabel(widget.trip.shift)} trip')),
+      appBar: AppBar(
+        title: DesignAppBarTitle(
+          '${prettifyLabel(widget.trip.shift)} trip',
+          subtitle: 'NFC boarding',
+        ),
+      ),
       body: _booting
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -254,7 +267,7 @@ class _TripScanScreenState extends State<TripScanScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _TripHeaderCard(trip: widget.trip),
+                  _tripHero(),
                   const SizedBox(height: 12),
                   if (_gpsTracker != null) ...[
                     ValueListenableBuilder<GpsTrackerSnapshot>(
@@ -263,8 +276,7 @@ class _TripScanScreenState extends State<TripScanScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  Text('Recording', style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 8),
+                  const SectionLabel('Recording'),
                   SegmentedButton<NfcEventType>(
                     segments: const [
                       ButtonSegment(
@@ -290,7 +302,8 @@ class _TripScanScreenState extends State<TripScanScreen> {
                     onStop: _stopNfcScanning,
                   ),
                   const SizedBox(height: 12),
-                  Card(
+                  Panel(
+                    padding: const EdgeInsets.all(6),
                     child: ExpansionTile(
                       leading: const Icon(Icons.keyboard_outlined),
                       title: const Text('Enter card UID manually'),
@@ -327,74 +340,47 @@ class _TripScanScreenState extends State<TripScanScreen> {
                     const SizedBox(height: 8),
                     ErrorBanner(message: _error!),
                   ],
+                  if (_recentScans.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const SectionLabel('Recent scans'),
+                    for (var i = 0; i < _recentScans.length; i++)
+                      TimelineItem(
+                        color: context.status.of(StatusKind.bus),
+                        icon: _recentScans[i].type == NfcEventType.boarding
+                            ? Icons.arrow_upward_outlined
+                            : Icons.arrow_downward_outlined,
+                        title: _recentScans[i].uid,
+                        time: formatTime(_recentScans[i].at),
+                        description: '${prettifyLabel(_recentScans[i].type.name)} recorded',
+                        isLast: i == _recentScans.length - 1,
+                      ),
+                  ],
                 ],
               ),
             ),
+    );
+  }
+
+  /// The trip being scanned is always the live one: hero header with pulse.
+  Widget _tripHero() {
+    final date = DateTime.tryParse(widget.trip.serviceDate);
+    final dateLabel = date != null ? formatDay(date) : widget.trip.serviceDate;
+    return HeroCard(
+      eyebrow: 'Live trip',
+      title: '${prettifyLabel(widget.trip.shift)} trip',
+      subtitle: '$dateLabel · ${prettifyLabel(widget.trip.status)}',
+      live: true,
     );
   }
 }
 
-class _TripHeaderCard extends StatelessWidget {
-  const _TripHeaderCard({required this.trip});
+/// In-memory display record for the recent-scans feed.
+class _ScanRecord {
+  const _ScanRecord({required this.uid, required this.at, required this.type});
 
-  final AttendantTrip trip;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final date = DateTime.tryParse(trip.serviceDate);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(Icons.directions_bus, color: scheme.onPrimaryContainer, size: 28),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${prettifyLabel(trip.shift)} trip',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    date != null ? formatDay(date) : trip.serviceDate,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: scheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                prettifyLabel(trip.status),
-                style: TextStyle(
-                  color: scheme.onSecondaryContainer,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  final String uid;
+  final DateTime at;
+  final NfcEventType type;
 }
 
 class _NfcScanCard extends StatelessWidget {
@@ -415,62 +401,66 @@ class _NfcScanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scanning ? scheme.primary : scheme.primaryContainer,
-              ),
-              child: Icon(
-                Icons.nfc_outlined,
-                size: 44,
-                color: scanning ? scheme.onPrimary : scheme.onPrimaryContainer,
-              ),
+    final bus = context.status.of(StatusKind.bus);
+    final busSoft = context.status.softOf(StatusKind.bus);
+    return Panel(
+      child: Column(
+        children: [
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scanning ? bus : busSoft,
+              boxShadow: scanning
+                  ? [
+                      BoxShadow(
+                        color: bus.withValues(alpha: 0.40),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
             ),
-            const SizedBox(height: 12),
-            Text(
-              scanning ? 'Ready to scan' : 'Tap student cards',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            child: Icon(
+              Icons.nfc_outlined,
+              size: 44,
+              color: scanning ? Colors.white : bus,
             ),
-            const SizedBox(height: 4),
-            Text(
-              scanning
-                  ? 'Hold each card near the back of the phone.'
-                  : available
-                      ? 'Scan cards with the phone\'s NFC reader.'
-                      : 'NFC is not available on this phone — use manual entry below.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            scanning ? 'Ready to scan' : 'Tap student cards',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            scanning
+                ? 'Hold each card near the back of the phone.'
+                : available
+                    ? 'Scan cards with the phone\'s NFC reader.'
+                    : 'NFC is not available on this phone — use manual entry below.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: DesignColors.ink2),
+          ),
+          const SizedBox(height: 16),
+          if (scanning)
+            OutlinedButton.icon(
+              onPressed: onStop,
+              icon: const Icon(Icons.stop_outlined),
+              label: const Text('Stop scanning'),
+            )
+          else
+            PrimaryButton(
+              icon: Icons.nfc_outlined,
+              label: 'Start scanning',
+              onPressed: available ? onStart : null,
             ),
+          if (scanCount > 0) ...[
             const SizedBox(height: 16),
-            if (scanning)
-              OutlinedButton.icon(
-                onPressed: onStop,
-                icon: const Icon(Icons.stop_outlined),
-                label: const Text('Stop scanning'),
-              )
-            else
-              FilledButton.icon(
-                onPressed: available ? onStart : null,
-                icon: const Icon(Icons.nfc_outlined),
-                label: const Text('Start scanning'),
-              ),
-            if (scanCount > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Scans this session: $scanCount',
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ],
+            Tally(count: scanCount, label: 'Scans', kind: StatusKind.bus),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -483,12 +473,17 @@ class _StatusLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(Icons.check_circle_outline, size: 18, color: scheme.primary),
+        Icon(
+          Icons.check_circle_outline,
+          size: 18,
+          color: context.status.of(StatusKind.present),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: Text(text)),
+        Expanded(
+          child: Text(text, style: const TextStyle(color: DesignColors.ink2)),
+        ),
       ],
     );
   }
@@ -526,9 +521,16 @@ class _GpsStatusCard extends StatelessWidget {
         icon = Icons.gps_off;
         text = 'GPS: stopped.';
     }
-    return Card(
+    Color? iconColor;
+    if (warning) {
+      iconColor = context.status.of(StatusKind.absent);
+    } else if (snapshot.phase == GpsTrackerPhase.tracking) {
+      iconColor = context.status.of(StatusKind.bus);
+    }
+    return Panel(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: ListTile(
-        leading: Icon(icon, color: warning ? theme.colorScheme.error : null),
+        leading: Icon(icon, color: iconColor),
         title: Text(text, style: theme.textTheme.bodyMedium),
         subtitle: snapshot.lastFixAt != null && snapshot.phase == GpsTrackerPhase.tracking
             ? Text(

@@ -19,6 +19,8 @@ dependencies:
     path: ../attendant_nfc
   mobile_push:
     path: ../mobile_push
+  schoolpass_design:
+    path: ../schoolpass_design
 
 dev_dependencies:
   flutter_test:

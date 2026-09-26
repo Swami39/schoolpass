@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../academic/academic_models.dart';
 import '../academic/admin_academic_api.dart';
@@ -78,12 +79,9 @@ class _AcademicYearFormScreenState extends State<AcademicYearFormScreen> {
             ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _submitting ? null : _submit,
-            child: _submitting
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Create'),
-          ),
+          _submitting
+              ? const PrimaryButton(label: 'Creating…', onPressed: null)
+              : PrimaryButton(label: 'Create', onPressed: _submit),
         ],
       ),
     );
@@ -177,12 +175,9 @@ class _SchoolClassFormScreenState extends State<SchoolClassFormScreen> {
             ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _submitting ? null : _submit,
-            child: _submitting
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Create class'),
-          ),
+          _submitting
+              ? const PrimaryButton(label: 'Creating…', onPressed: null)
+              : PrimaryButton(label: 'Create class', onPressed: _submit),
         ],
       ),
     );
@@ -292,12 +287,9 @@ class _SectionFormScreenState extends State<SectionFormScreen> {
                   ErrorBanner(message: _error!),
                 ],
                 const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Create section'),
-                ),
+                _submitting
+                    ? const PrimaryButton(label: 'Creating…', onPressed: null)
+                    : PrimaryButton(label: 'Create section', onPressed: _submit),
               ],
             ),
     );
@@ -364,12 +356,9 @@ class _SubjectFormScreenState extends State<SubjectFormScreen> {
             ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _submitting ? null : _submit,
-            child: _submitting
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Create subject'),
-          ),
+          _submitting
+              ? const PrimaryButton(label: 'Creating…', onPressed: null)
+              : PrimaryButton(label: 'Create subject', onPressed: _submit),
         ],
       ),
     );
@@ -581,12 +570,12 @@ class _TeacherAssignmentFormScreenState extends State<TeacherAssignmentFormScree
                   ErrorBanner(message: _error!),
                 ],
                 const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Create assignment'),
-                ),
+                _submitting
+                    ? const PrimaryButton(label: 'Creating…', onPressed: null)
+                    : PrimaryButton(
+                        label: 'Create assignment',
+                        onPressed: _submit,
+                      ),
               ],
             ),
     );

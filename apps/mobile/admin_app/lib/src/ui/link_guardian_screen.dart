@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../app/admin_dependencies.dart';
 import '../people/admin_people_api.dart';
@@ -129,11 +130,7 @@ class _LinkGuardianScreenState extends State<LinkGuardianScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  'Parent of ${widget.studentName}',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
+                SectionLabel('Parent of ${widget.studentName}'),
                 Text(
                   'The parent email becomes their Parent app login.',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -215,12 +212,12 @@ class _LinkGuardianScreenState extends State<LinkGuardianScreen> {
                   ErrorBanner(message: _error!),
                 ],
                 const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Link parent'),
-                ),
+                _submitting
+                    ? const PrimaryButton(label: 'Linking…', onPressed: null)
+                    : PrimaryButton(
+                        label: 'Link parent',
+                        onPressed: _submit,
+                      ),
               ],
             ),
     );

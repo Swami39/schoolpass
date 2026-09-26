@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../ui/app_theme.dart';
 import '../ui/home_screen.dart';
@@ -59,7 +60,6 @@ class _BootSplash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       body: Center(
         child: Column(
@@ -67,9 +67,22 @@ class _BootSplash extends StatelessWidget {
           children: [
             const BrandMark(icon: Icons.directions_bus),
             const SizedBox(height: 20),
-            Text('SchoolPass', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              'SchoolPass',
+              style: DesignTypography.heroTitle(
+                color: DesignColors.ink,
+                size: 28,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('Bus Attendant', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const Text(
+              'Bus Attendant',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: DesignColors.ink2,
+              ),
+            ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(),
           ],

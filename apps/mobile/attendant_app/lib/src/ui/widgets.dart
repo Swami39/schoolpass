@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 /// Gradient logo mark used on the splash and login screens.
 class BrandMark extends StatelessWidget {
@@ -9,26 +10,21 @@ class BrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [scheme.primary, scheme.tertiary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: DesignColors.brandGradient,
         borderRadius: BorderRadius.circular(size * 0.28),
         boxShadow: [
           BoxShadow(
-            color: scheme.primary.withValues(alpha: 0.25),
+            color: DesignColors.brand.withValues(alpha: 0.30),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Icon(icon, size: size * 0.52, color: scheme.onPrimary),
+      child: Icon(icon, size: size * 0.52, color: Colors.white),
     );
   }
 }
@@ -41,21 +37,24 @@ class ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final status = context.status;
+    final color = status.of(StatusKind.absent);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: scheme.errorContainer,
+        color: status.softOf(StatusKind.absent),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: scheme.onErrorContainer),
+          Icon(Icons.error_outline, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(color: scheme.onErrorContainer),
+              style: TextStyle(
+                color: Color.lerp(color, Colors.black, 0.25),
+              ),
             ),
           ),
         ],
@@ -85,7 +84,11 @@ class EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 56, color: theme.colorScheme.primary.withValues(alpha: 0.6)),
+          Icon(
+            icon,
+            size: 56,
+            color: context.status.of(StatusKind.bus).withValues(alpha: 0.65),
+          ),
           const SizedBox(height: 16),
           Text(
             title,
@@ -98,7 +101,7 @@ class EmptyState extends StatelessWidget {
               subtitle!,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: DesignColors.ink2,
               ),
             ),
           ],

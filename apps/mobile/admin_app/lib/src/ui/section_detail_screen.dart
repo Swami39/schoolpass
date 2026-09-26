@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
@@ -210,7 +211,6 @@ class _StudentsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final rows = enrollments
         .map((e) => students[e.studentId])
         .whereType<StudentDetail>()
@@ -223,7 +223,11 @@ class _StudentsTab extends StatelessWidget {
             Expanded(
               child: Text(
                 '${rows.length} ${rows.length == 1 ? 'student' : 'students'} enrolled',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: DesignColors.ink,
+                ),
               ),
             ),
             FilledButton.icon(
@@ -273,53 +277,62 @@ class _StudentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final activeLinks = links.where((l) => l.status.toLowerCase() == 'active').toList();
     final names = activeLinks
         .map((l) => guardians[l.guardianId]?.displayName)
         .whereType<String>()
         .toList();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: scheme.primaryContainer,
-          child: Text(
-            student.firstName.isEmpty ? '?' : student.firstName[0].toUpperCase(),
-            style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w700),
-          ),
-        ),
-        title: Text(student.displayName),
-        subtitle: Column(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Panel(
+        padding: const EdgeInsets.all(14),
+        onTap: onTap,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Admission ${student.admissionNo}'),
-            const SizedBox(height: 4),
-            if (names.isEmpty)
-              InkWell(
-                onTap: onLinkParent,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+            Row(
+              children: [
+                InitialsAvatar(
+                  initials: student.firstName.isEmpty
+                      ? '?'
+                      : student.firstName[0].toUpperCase(),
+                  color: DesignColors.brand,
+                  size: 44,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.warning_amber_outlined, size: 14, color: Color(0xFF92400E)),
-                      SizedBox(width: 4),
                       Text(
-                        'No parent linked — tap to link',
-                        style: TextStyle(
-                          color: Color(0xFF92400E),
-                          fontWeight: FontWeight.w600,
+                        student.displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: DesignColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Admission ${student.admissionNo}',
+                        style: const TextStyle(
                           fontSize: 12,
+                          color: DesignColors.ink2,
                         ),
                       ),
                     ],
                   ),
+                ),
+                const Icon(Icons.chevron_right, color: DesignColors.ink3),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (names.isEmpty)
+              GestureDetector(
+                onTap: onLinkParent,
+                child: const StatusPill(
+                  kind: StatusKind.late,
+                  label: 'No parent linked',
                 ),
               )
             else
@@ -328,46 +341,18 @@ class _StudentRow extends StatelessWidget {
                 runSpacing: 4,
                 children: [
                   for (final name in names)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          color: Color(0xFF166534),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  InkWell(
+                    StatusPill(kind: StatusKind.present, label: name),
+                  GestureDetector(
                     onTap: onLinkParent,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '+ Add',
-                        style: TextStyle(
-                          color: scheme.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
+                    child: const StatusPill(
+                      kind: StatusKind.neutral,
+                      label: '+ Add',
                     ),
                   ),
                 ],
               ),
           ],
         ),
-        isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
       ),
     );
   }
@@ -386,8 +371,6 @@ class _TeachersTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -396,7 +379,11 @@ class _TeachersTab extends StatelessWidget {
             Expanded(
               child: Text(
                 '${assignments.length} ${assignments.length == 1 ? 'teacher' : 'teachers'} assigned',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: DesignColors.ink,
+                ),
               ),
             ),
             FilledButton.icon(
@@ -417,25 +404,58 @@ class _TeachersTab extends StatelessWidget {
           )
         else
           for (final a in assignments)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: scheme.secondaryContainer,
-                  child: Icon(Icons.person_outline, color: scheme.onSecondaryContainer),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Panel(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    InitialsAvatar(
+                      initials: _teacherInitial(a),
+                      color: DesignColors.bus,
+                      size: 44,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            staffByUserId[a.teacherUserId]?.email ??
+                                staffByUserId[a.teacherUserId]?.employeeCode ??
+                                'Teacher',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: DesignColors.ink,
+                            ),
+                          ),
+                          if (staffByUserId[a.teacherUserId]?.employeeCode != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'ID ${staffByUserId[a.teacherUserId]!.employeeCode}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: DesignColors.ink2,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    StatusChip(status: a.assignmentRole),
+                  ],
                 ),
-                title: Text(
-                  staffByUserId[a.teacherUserId]?.email ??
-                      staffByUserId[a.teacherUserId]?.employeeCode ??
-                      'Teacher',
-                ),
-                subtitle: staffByUserId[a.teacherUserId]?.employeeCode != null
-                    ? Text('ID ${staffByUserId[a.teacherUserId]!.employeeCode}')
-                    : null,
-                trailing: StatusChip(status: a.assignmentRole),
               ),
             ),
       ],
     );
+  }
+
+  String _teacherInitial(TeacherAssignmentItem a) {
+    final staff = staffByUserId[a.teacherUserId];
+    final source = staff?.email ?? staff?.employeeCode ?? '';
+    if (source.isEmpty) return 'T';
+    return source[0].toUpperCase();
   }
 }

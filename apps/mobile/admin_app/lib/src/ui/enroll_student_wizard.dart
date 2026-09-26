@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:schoolpass_design/schoolpass_design.dart';
 
 import '../academic/academic_models.dart';
 import '../app/admin_dependencies.dart';
@@ -333,8 +334,7 @@ class _EnrollStudentWizardState extends State<EnrollStudentWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Who is the child?', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 4),
+        const SectionLabel('Step 1 of 3 — the child'),
         Text(
           'Basic details first — class and parents come next.',
           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -362,8 +362,7 @@ class _EnrollStudentWizardState extends State<EnrollStudentWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Which class section?', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 4),
+        const SectionLabel('Step 2 of 3 — class section'),
         Text(
           'The child will be enrolled here for the selected year.',
           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -397,34 +396,67 @@ class _EnrollStudentWizardState extends State<EnrollStudentWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Who are the parents?', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 4),
+        const SectionLabel('Step 3 of 3 — parents'),
         Text(
           'Add one or more parents. Each new parent gets a Parent app login from their email.',
           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         for (int i = 0; i < _parents.length; i++)
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.family_restroom_outlined),
-              title: Text(_parents[i].label.isEmpty ? 'Parent ${i + 1}' : _parents[i].label),
-              subtitle: Text(
-                '${_parents[i].relationship}${_parents[i].isPrimary ? ' · primary contact' : ''}',
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => setState(() => _parents.removeAt(i)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Panel(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: DesignColors.brandSoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.family_restroom_outlined,
+                      color: DesignColors.brandInk,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _parents[i].label.isEmpty ? 'Parent ${i + 1}' : _parents[i].label,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: DesignColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_parents[i].relationship}${_parents[i].isPrimary ? ' · primary contact' : ''}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: DesignColors.ink2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => setState(() => _parents.removeAt(i)),
+                  ),
+                ],
               ),
             ),
           ),
         if (_addingParent)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
+          Panel(
+            child: Column(
+              children: [
                   SegmentedButton<bool>(
                     segments: const [
                       ButtonSegment(value: true, label: Text('New parent')),
@@ -481,17 +513,16 @@ class _EnrollStudentWizardState extends State<EnrollStudentWizard> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FilledButton(
+                        child: PrimaryButton(
+                          label: 'Add parent',
                           onPressed: _addParentEntry,
-                          child: const Text('Add parent'),
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
-        )
+          )
         else
           OutlinedButton.icon(
             onPressed: () => setState(() => _addingParent = true),
@@ -519,11 +550,10 @@ class _StepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: DesignColors.line)),
       ),
       child: Row(
         children: [
@@ -534,12 +564,12 @@ class _StepProgress extends StatelessWidget {
               _labels[i],
               style: TextStyle(
                 fontWeight: i == step ? FontWeight.w800 : FontWeight.w500,
-                color: i <= step ? scheme.primary : scheme.onSurfaceVariant,
+                color: i <= step ? DesignColors.brandInk : DesignColors.ink3,
               ),
             ),
             if (i < _labels.length - 1) ...[
               const SizedBox(width: 8),
-              Expanded(child: Divider(color: scheme.outlineVariant)),
+              const Expanded(child: Divider(color: DesignColors.line2)),
               const SizedBox(width: 8),
             ],
           ],
@@ -557,7 +587,7 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final status = context.status;
     final done = index < current;
     final active = index == current;
     return Container(
@@ -566,18 +596,20 @@ class _Dot extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: done
-            ? const Color(0xFFDCFCE7)
+            ? status.softOf(StatusKind.present)
             : active
-                ? scheme.primary
-                : scheme.surfaceContainerHigh,
+                ? DesignColors.brand
+                : status.softOf(StatusKind.neutral),
       ),
       child: Center(
         child: done
-            ? const Icon(Icons.check, size: 16, color: Color(0xFF166534))
+            ? Icon(Icons.check, size: 16, color: status.of(StatusKind.present))
             : Text(
                 '${index + 1}',
                 style: TextStyle(
-                  color: active ? scheme.onPrimary : scheme.onSurfaceVariant,
+                  color: active
+                      ? Colors.white
+                      : status.of(StatusKind.neutral),
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -604,11 +636,10 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: DesignColors.line)),
       ),
       child: Row(
         children: [
@@ -621,12 +652,12 @@ class _BottomBar extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             flex: 2,
-            child: FilledButton(
-              onPressed: submitting ? null : (step == 2 ? onFinish : onNext),
-              child: submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(step == 2 ? 'Enroll student' : 'Continue'),
-            ),
+            child: submitting
+                ? const PrimaryButton(label: 'Enrolling…', onPressed: null)
+                : PrimaryButton(
+                    label: step == 2 ? 'Enroll student' : 'Continue',
+                    onPressed: step == 2 ? onFinish : onNext,
+                  ),
           ),
         ],
       ),
